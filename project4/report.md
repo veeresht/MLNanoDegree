@@ -2,7 +2,7 @@
   Reinforcement Learning Project  
   Train a Smartcab to Drive
 % Veeresh Taranalli
-% March 5, 2016
+% March 9, 2016
 
 Implementation of a Basic Driving Agent
 =======================================
@@ -25,7 +25,7 @@ The following inputs are available to our learning agent from its environment wh
     * next waypoint: [Forward, Left, Right]
     * deadline: integer number
 
-As deadline is an integer number and keeps changing over time, it is clear that it should not be made a part of the state for our learning agent. Using all the remaining inputs, we would have 2 x 4 x 4 x 4 x 3 = 384 states. Given that the learning agent needs to visit all possible states multiple times in about 400 time steps (assuming average of 40 available steps per trial and 100 trials) to correctly learn an optimal policy, defining 384 different states for our learning agent is clearly not the correct choice.
+As deadline is an integer number and keeps changing over time, it is clear that it should not be made a part of the state for our learning agent. Using all the remaining inputs, we would have 2 x 4 x 4 x 4 x 3 = 384 states. Given that the learning agent needs to visit all possible states multiple times in about 4000 time steps (assuming average of 40 available steps per trial and 100 trials) to correctly learn an optimal policy, defining 384 different states for our learning agent is not the correct choice.
 
 However, we also can utilize our a-priori knowledge of traffic/right-of-way rules (USA) to reduce the number of possible states for our learning agent. The state reduction is achieved as follows:
 
@@ -71,7 +71,7 @@ $$\epsilon = 0.10 \rightarrow 95$$
 $$\epsilon = 0.15 \rightarrow 90$$
 $$\epsilon = 0.20 \rightarrow 83$$
 
-Therefore $\epsilon$ value around 0.1 seems to be the best as chosen earlier and this will be used for our final agent. Using these chosen values of $\alpha$, $\gamma$ and $\epsilon$ parameters, we observe the performance of the agent in terms of actual steps v/s alloted steps as shown in Fig. 2. This is to evaluate if our agent has learned the optimal policy. We observe that the agent is able to reach its destination much earlier than the alloted deadline consistently which indicates that agent has learnt a close to optimal policy.
+Therefore $\epsilon$ value around 0.1 seems to be the best as chosen earlier and this will be used for our final agent. Using these chosen values of $\alpha$, $\gamma$ and $\epsilon$ parameters, we observe the performance of the agent in terms of actual steps v/s alloted steps as shown in Fig. 2. This is to evaluate if our agent has learned the optimal policy. We observe that the agent is able to reach its destination much earlier than the alloted deadline consistently. We also count the number of times our agent receives a negative reward for its action. In one such experiment with 100 trials, our agent receives negative rewards for only 4 steps. A negative reward is received when the agent breaks the traffic signals. Therefore these observations show that our agent has learnt a close to optimal policy.
 
 ![Plot of number of successful trials out of 100 trials of the learning agent versus the learning rate parameter and the discount parameter. $\epsilon = 0.1$.](alpha_gamma_plot.pdf "Parameter Optimization")
 
