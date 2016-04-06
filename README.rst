@@ -1,16 +1,22 @@
 Udacity Machine Learning Nanodegree Projects
 ==============================================
 
-Project 1 - Predicting Boston Housing Prices - Model Evaluation and Validation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Project 1 - Predicting Boston Housing Prices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Model Evaluation and Validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Built a model to predict the value of a given house in the Boston real estate market (standard dataset) using various statistical analysis tools.
 
 - Identified the best price that a client can sell their house using machine learning techniques.
 
 
-Project 3 - Explore the Clusters in a Dataset - Unsupervised Learning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Project 3 - Explore the Clusters in a Dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Unsupervised Learning
+^^^^^^^^^^^^^^^^^^^^^
 
 - Reviewed unstructured data to understand the patterns and natural categories that the data fits into.
 
@@ -19,7 +25,10 @@ Project 3 - Explore the Clusters in a Dataset - Unsupervised Learning
 - Made predictions about the natural categories of multiple types in a dataset, then checked these predictions against the result of unsupervised analysis.
 
 
-Project 4 - Train a Smartcab How to Drive - Reinforcement Learning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Project 4 - Train a Smartcab How to Drive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reinforcement Learning
+^^^^^^^^^^^^^^^^^^^^^^
 
 - Applied reinforcement learning to build a simulated vehicle navigation agent. This project involved modeling a complex control problem in terms of limited available inputs, and designing a scheme to automatically learn an optimal driving strategy based on rewards and penalties.
