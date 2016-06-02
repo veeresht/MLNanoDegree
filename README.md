@@ -1,5 +1,7 @@
 ### Udacity Machine Learning Nanodegree Projects
 
+--------------------------------------------------------------------------------
+
 #### Project 1 - Predicting Boston Housing Prices
 
 #### Model Evaluation and Validation
@@ -7,6 +9,8 @@
 - Built a model to predict the value of a given house in the Boston real estate market (standard dataset) using various statistical analysis tools.
 
 - Identified the best price that a client can sell their house using machine learning techniques.
+
+--------------------------------------------------------------------------------
 
 #### Project 2 - Building a Student Intervention System
 
@@ -18,6 +22,8 @@
 
 - Classifiers trained and tested include Decision Trees, Support Vector Machines (SVMs) and K-Nearest Neighbors (k-NN).
 
+--------------------------------------------------------------------------------
+
 #### Project 3 - Explore the Clusters in a Dataset
 
 #### Unsupervised Learning
@@ -27,6 +33,8 @@
 - Used multiple algorithms (PCA, ICA and clustering) and compared and contrasted their results both empirically and theoretically.
 
 - Made predictions about the natural categories of multiple types in a dataset, then checked these predictions against the result of unsupervised analysis.
+
+--------------------------------------------------------------------------------
 
 #### Project 4 - Train a Smartcab How to Drive
 
