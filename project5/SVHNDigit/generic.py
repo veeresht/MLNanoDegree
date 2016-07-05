@@ -1,11 +1,14 @@
 import numpy as np
 import scipy.io as scipy_io
+import cPickle as pickle
 
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, EarlyStopping
 
 from sklearn.cross_validation import train_test_split
+
+from SVHNDigit.models.cnn.model import CNN_1
 
 
 def read_dataset(data_dir,
@@ -74,7 +77,7 @@ def read_dataset(data_dir,
     return train_X, train_y, val_X, val_y, test_X, test_y
 
 
-def train_model(model, model_train_params,
+def train_model(network, model_train_params,
                 train_X, train_y,
                 val_X, val_y,
                 verbose=0,
@@ -94,22 +97,71 @@ def train_model(model, model_train_params,
     elif optimizer == 'adam':
         optimizer = Adam(lr=model_train_params['lr'])
 
-    model.compile(loss=loss,
-                  metrics=metrics,
-                  optimizer=optimizer)
+    network.model.compile(loss=loss,
+                          metrics=metrics,
+                          optimizer=optimizer)
 
     callbacks = []
     if tb_logs:
         tb_callback = TensorBoard(log_dir='./logs', histogram_freq=1)
         callbacks = [tb_callback]
 
-    model.fit(train_X, train_y,
-              batch_size=batch_size,
-              nb_epoch=nb_epochs,
-              show_accuracy=False,
-              callbacks=callbacks,
-              verbose=verbose)
+    early_stopping = EarlyStopping(monitor='val_loss',
+                                   patience=1, verbose=0, mode='auto')
+    callbacks.append(early_stopping)
 
-    score, acc = model.evaluate(val_X, val_y, verbose=verbose)
-    if verbose == 1:
-        print('Validation accuracy:', acc)
+    network.model.fit(train_X, train_y,
+                      batch_size=batch_size,
+                      nb_epoch=nb_epochs,
+                      callbacks=callbacks,
+                      validation_split=0.1,
+                      verbose=verbose)
+
+
+def build_tune_model(model_tune_params,
+                     model_train_params,
+                     model_define_params,
+                     train_X, train_y,
+                     val_X, val_y,
+                     num_iters,
+                     verbose=1):
+
+    best_params_file = open('best_model_params.p', "wb")
+    best_model_params = None
+    val_acc = 0
+    for i in range(num_iters):
+        for k in model_tune_params:
+            # Learning Rate and Momentum
+            if k == 'lr' or k == 'momentum':
+                model_train_params[k] = 10 ** \
+                    np.random.uniform(
+                    model_tune_params[k][0],
+                    model_tune_params[k][1])
+            # Regularization Factor and Dropout Parameter
+            if k == 'reg_factor' or k == 'dropout_param':
+                model_define_params[k] = 10 ** \
+                    np.random.uniform(
+                    model_tune_params[k][0],
+                    model_tune_params[k][1])
+
+        input_dim = train_X.shape[1:]
+        cnn = CNN_1(model_define_params, input_dim)
+        cnn.define(verbose=verbose)
+        train_model(cnn, model_train_params,
+                    train_X, train_y,
+                    val_X, val_y,
+                    verbose=verbose)
+
+        score, acc = cnn.model.evaluate(val_X, val_y, verbose=verbose)
+        if verbose == 1:
+            print('\nValidation accuracy:', acc)
+
+        if acc > val_acc:
+            val_acc = acc
+            best_model_params = (model_define_params, model_train_params)
+
+        if best_model_params is not None:
+            for d in best_model_params:
+                pickle.dump(d, best_params_file)
+
+    return best_model_params
