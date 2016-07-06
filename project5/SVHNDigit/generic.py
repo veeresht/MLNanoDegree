@@ -4,7 +4,7 @@ import cPickle as pickle
 
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard, EarlyStopping
+from keras.callbacks import TensorBoard, EarlyStopping, Callback
 
 from sklearn.cross_validation import train_test_split
 
@@ -77,6 +77,50 @@ def read_dataset(data_dir,
     return train_X, train_y, val_X, val_y, test_X, test_y
 
 
+class EarlyBatchTermination(Callback):
+    '''Stop training when a monitored quantity has stopped improving.
+    # Arguments
+        monitor: quantity to be monitored.
+        patience: number of epochs with no improvement
+            after which training will be stopped.
+        verbose: verbosity mode.
+        mode: one of {auto, min, max}. In 'min' mode,
+            training will stop when the quantity
+            monitored has stopped decreasing; in 'max'
+            mode it will stop when the quantity
+            monitored has stopped increasing.
+    '''
+
+    def __init__(self, monitor='loss', interval=10, verbose=0):
+        super(EarlyBatchTermination, self).__init__()
+
+        self.monitor = monitor
+        self.interval = interval
+        self.verbose = verbose
+        self.batch_count = 0
+
+    def on_train_begin(self, logs={}):
+        self.prev_batch_loss = 1000
+        self.current_batch_loss = 0
+
+    def on_batch_end(self, batch, logs={}):
+
+        if self.batch_count % self.interval == 0:
+            self.current_batch_loss = logs.get('loss')
+            if (((abs(self.prev_batch_loss - self.current_batch_loss)) /
+                 (self.prev_batch_loss + 1.0e-8)) < 0.1):
+                if self.verbose > 0:
+                    print('Early Batch Termination')
+                self.model.stop_training = True
+            self.prev_batch_loss = self.current_batch_loss
+        self.batch_count += 1
+
+    def on_epoch_end(self, epoch, logs={}):
+        self.prev_batch_loss = 1000
+        self.current_batch_loss = 0
+        self.batch_count = 0
+
+
 def train_model(network, model_train_params,
                 train_X, train_y,
                 val_X, val_y,
@@ -92,7 +136,7 @@ def train_model(network, model_train_params,
     if optimizer == 'sgd':
         optimizer = SGD(lr=model_train_params['lr'],
                         momentum=model_train_params['momentum'],
-                        decay=0.0,
+                        decay=model_train_params['decay'],
                         nesterov=model_train_params['nesterov'])
     elif optimizer == 'adam':
         optimizer = Adam(lr=model_train_params['lr'])
@@ -109,6 +153,10 @@ def train_model(network, model_train_params,
     early_stopping = EarlyStopping(monitor='val_loss',
                                    patience=1, verbose=0, mode='auto')
     callbacks.append(early_stopping)
+
+    # early_batch_term = EarlyBatchTermination(monitor='loss', interval=10,
+    #                                         verbose=1)
+    # callbacks.append(early_batch_term)
 
     network.model.fit(train_X, train_y,
                       batch_size=batch_size,
@@ -137,16 +185,21 @@ def build_tune_model(model_tune_params,
                     np.random.uniform(
                     model_tune_params[k][0],
                     model_tune_params[k][1])
+                # if verbose > 0:
+                #    print k, ':', model_train_params[k]
+
             # Regularization Factor and Dropout Parameter
             if k == 'reg_factor' or k == 'dropout_param':
                 model_define_params[k] = 10 ** \
                     np.random.uniform(
                     model_tune_params[k][0],
                     model_tune_params[k][1])
+                # if verbose > 0:
+                #    print k, ':', model_define_params[k]
 
         input_dim = train_X.shape[1:]
         cnn = CNN_1(model_define_params, input_dim)
-        cnn.define(verbose=verbose)
+        cnn.define(verbose=0)
         train_model(cnn, model_train_params,
                     train_X, train_y,
                     val_X, val_y,
@@ -154,7 +207,7 @@ def build_tune_model(model_tune_params,
 
         score, acc = cnn.model.evaluate(val_X, val_y, verbose=verbose)
         if verbose == 1:
-            print('\nValidation accuracy:', acc)
+            print 'Validation accuracy:', acc
 
         if acc > val_acc:
             val_acc = acc
@@ -163,5 +216,7 @@ def build_tune_model(model_tune_params,
         if best_model_params is not None:
             for d in best_model_params:
                 pickle.dump(d, best_params_file)
+
+    best_params_file.close()
 
     return best_model_params
