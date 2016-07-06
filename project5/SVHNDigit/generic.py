@@ -8,7 +8,7 @@ from keras.callbacks import TensorBoard, EarlyStopping, Callback
 
 from sklearn.cross_validation import train_test_split
 
-from SVHNDigit.models.cnn.model import CNN_1
+from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod
 
 
 def read_dataset(data_dir,
@@ -174,7 +174,7 @@ def build_tune_model(model_tune_params,
                      num_iters,
                      verbose=1):
 
-    best_params_file = open('best_model_params.p', "wb")
+    best_params_file = open('best_LeNet5Mod_model_params.p', "wb")
     best_model_params = None
     val_acc = 0
     for i in range(num_iters):
@@ -198,7 +198,7 @@ def build_tune_model(model_tune_params,
                 #    print k, ':', model_define_params[k]
 
         input_dim = train_X.shape[1:]
-        cnn = CNN_1(model_define_params, input_dim)
+        cnn = LeNet5Mod(model_define_params, input_dim)
         cnn.define(verbose=0)
         train_model(cnn, model_train_params,
                     train_X, train_y,
