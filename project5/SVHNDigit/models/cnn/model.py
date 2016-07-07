@@ -9,6 +9,8 @@ class CNN_1(object):
 
     def __init__(self, model_params, input_dim):
 
+        # Name of the model
+        self.name = 'CNN1'
         # Weight initialization type
         self.init = model_params['init']
         # Dropout parameters
@@ -104,6 +106,8 @@ class LeNet5Mod(object):
 
     def __init__(self, model_params, input_dim):
 
+        # Name of the model
+        self.name = 'LeNet5Mod'
         # Weight initialization type
         self.init = model_params['init']
         # Dropout parameters

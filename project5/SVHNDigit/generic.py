@@ -1,7 +1,8 @@
 import numpy as np
 import scipy.io as scipy_io
 import cPickle as pickle
-
+import boto3
+import socket
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
 from keras.callbacks import TensorBoard, EarlyStopping, Callback
@@ -154,16 +155,14 @@ def train_model(network, model_train_params,
                                    patience=1, verbose=0, mode='auto')
     callbacks.append(early_stopping)
 
-    # early_batch_term = EarlyBatchTermination(monitor='loss', interval=10,
-    #                                         verbose=1)
-    # callbacks.append(early_batch_term)
+    history = network.model.fit(train_X, train_y,
+                                batch_size=batch_size,
+                                nb_epoch=nb_epochs,
+                                callbacks=callbacks,
+                                validation_split=0.1,
+                                verbose=verbose)
 
-    network.model.fit(train_X, train_y,
-                      batch_size=batch_size,
-                      nb_epoch=nb_epochs,
-                      callbacks=callbacks,
-                      validation_split=0.1,
-                      verbose=verbose)
+    return history
 
 
 def build_tune_model(model_tune_params,
@@ -174,13 +173,14 @@ def build_tune_model(model_tune_params,
                      num_iters,
                      verbose=1):
 
-    best_params_file = open('best_LeNet5Mod_model_params.p', "wb")
-    best_model_params = None
-    val_acc = 0
+    s3 = boto3.resource('s3')
+
     for i in range(num_iters):
+        print "==========================================================="
+        print "Iteration Count: ", i
         for k in model_tune_params:
             # Learning Rate and Momentum
-            if k == 'lr' or k == 'momentum':
+            if k == 'lr' or k == 'decay' or k == 'momentum':
                 model_train_params[k] = 10 ** \
                     np.random.uniform(
                     model_tune_params[k][0],
@@ -200,22 +200,27 @@ def build_tune_model(model_tune_params,
         input_dim = train_X.shape[1:]
         cnn = LeNet5Mod(model_define_params, input_dim)
         cnn.define(verbose=0)
-        train_model(cnn, model_train_params,
-                    train_X, train_y,
-                    val_X, val_y,
-                    verbose=verbose)
+        history = train_model(cnn, model_train_params,
+                              train_X, train_y,
+                              val_X, val_y,
+                              verbose=verbose)
 
-        score, acc = cnn.model.evaluate(val_X, val_y, verbose=verbose)
+        score, acc = cnn.model.evaluate(val_X, val_y, batch_size=256,
+                                        verbose=verbose)
         if verbose == 1:
-            print 'Validation accuracy:', acc
+            print 'Validation Loss: %0.4f' % (score)
+            print 'Validation Accuracy: %0.4f' % (acc)
 
-        if acc > val_acc:
-            val_acc = acc
-            best_model_params = (model_define_params, model_train_params)
+        data_store = (model_define_params, model_train_params,
+                      history.history, history.params, score, acc)
 
-        if best_model_params is not None:
-            pickle.dump(best_model_params, best_params_file)
+        data_store_file_name = cnn.name + '_tuning.p'
+        data_store_file = open(data_store_file_name, 'a+')
+        pickle.dump(data_store, data_store_file)
+        data_store_file.close()
 
-    best_params_file.close()
 
-    return best_model_params
+        key_file_name = cnn.name + '_tuning_' + socket.gethostname() + '.p'
+        # Upload to AWS S3 bucket
+        bucket = s3.Bucket('mlnd')
+        bucket.upload_file(data_store_file_name, key_file_name)
