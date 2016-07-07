@@ -185,8 +185,8 @@ def build_tune_model(model_tune_params,
                     np.random.uniform(
                     model_tune_params[k][0],
                     model_tune_params[k][1])
-                # if verbose > 0:
-                #    print k, ':', model_train_params[k]
+                if verbose > 0:
+                    print k, ':', model_train_params[k]
 
             # Regularization Factor and Dropout Parameter
             if k == 'reg_factor' or k == 'dropout_param':
@@ -194,8 +194,8 @@ def build_tune_model(model_tune_params,
                     np.random.uniform(
                     model_tune_params[k][0],
                     model_tune_params[k][1])
-                # if verbose > 0:
-                #    print k, ':', model_define_params[k]
+                if verbose > 0:
+                    print k, ':', model_define_params[k]
 
         input_dim = train_X.shape[1:]
         cnn = LeNet5Mod(model_define_params, input_dim)
@@ -214,8 +214,7 @@ def build_tune_model(model_tune_params,
             best_model_params = (model_define_params, model_train_params)
 
         if best_model_params is not None:
-            for d in best_model_params:
-                pickle.dump(d, best_params_file)
+            pickle.dump(best_model_params, best_params_file)
 
     best_params_file.close()
 
