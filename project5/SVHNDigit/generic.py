@@ -1,11 +1,12 @@
 import numpy as np
 import scipy.io as scipy_io
 import cPickle as pickle
+import warnings
 import boto3
 import socket
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard, EarlyStopping, Callback
+from keras.callbacks import TensorBoard, EarlyStopping, Callback, ModelCheckpoint
 
 from sklearn.cross_validation import train_test_split
 
@@ -122,12 +123,79 @@ class EarlyBatchTermination(Callback):
         self.batch_count = 0
 
 
+class ModelCheckpoint2S3(Callback):
+
+    def __init__(self, filepath, monitor='val_loss', verbose=0,
+                 save_best_only=False, mode='auto', s3resource=None,
+                 s3filename=None):
+
+        super(ModelCheckpoint2S3, self).__init__()
+
+        self.monitor = monitor
+        self.verbose = verbose
+        self.filepath = filepath
+        self.save_best_only = save_best_only
+        self.s3resource = s3resource
+        self.s3filename = s3filename
+
+        if mode not in ['auto', 'min', 'max']:
+            warnings.warn('ModelCheckpoint mode %s is unknown, '
+                          'fallback to auto mode.' % (mode),
+                          RuntimeWarning)
+            mode = 'auto'
+
+        if mode == 'min':
+            self.monitor_op = np.less
+            self.best = np.Inf
+        elif mode == 'max':
+            self.monitor_op = np.greater
+            self.best = -np.Inf
+        else:
+            if 'acc' in self.monitor:
+                self.monitor_op = np.greater
+                self.best = -np.Inf
+            else:
+                self.monitor_op = np.less
+                self.best = np.Inf
+
+    def on_epoch_end(self, epoch, logs={}):
+
+        filepath = self.filepath.format(epoch=epoch, **logs)
+        if self.save_best_only:
+            current = logs.get(self.monitor)
+            if current is None:
+                warnings.warn('Can save best model only with %s available, '
+                              'skipping.' % (self.monitor), RuntimeWarning)
+            else:
+                if self.monitor_op(current, self.best):
+                    if self.verbose > 0:
+                        print('Epoch %05d: %s improved from %0.5f to %0.5f,'
+                              ' saving model to %s'
+                              % (epoch, self.monitor, self.best,
+                                 current, filepath))
+                    self.best = current
+                    self.model.save_weights(filepath, overwrite=True)
+                    if self.s3resource is not None:
+                        # Upload to AWS S3 bucket
+                        bucket = self.s3resource.Bucket('mlnd')
+                        bucket.upload_file(self.s3filename, filepath)
+                else:
+                    if self.verbose > 0:
+                        print('Epoch %05d: %s did not improve' %
+                              (epoch, self.monitor))
+        else:
+            if self.verbose > 0:
+                print('Epoch %05d: saving model to %s' % (epoch, filepath))
+            self.model.save_weights(filepath, overwrite=True)
+
+
 def train_model(network, model_train_params,
                 train_X, train_y,
                 val_X, val_y,
                 verbose=0,
                 tb_logs=False):
 
+    s3 = boto3.resource('s3')
     loss = model_train_params['loss']
     optimizer = model_train_params['optimizer']
     metrics = model_train_params['metrics']
@@ -154,6 +222,15 @@ def train_model(network, model_train_params,
     early_stopping = EarlyStopping(monitor='val_loss',
                                    patience=1, verbose=0, mode='auto')
     callbacks.append(early_stopping)
+
+    model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
+                                             monitor='val_loss',
+                                             save_best_only=True,
+                                             verbose=0,
+                                             s3resource=s3,
+                                             s3filename=network.name + '.h5')
+
+    callbacks.append(model_checkpoint_cb)
 
     history = network.model.fit(train_X, train_y,
                                 batch_size=batch_size,
@@ -218,7 +295,6 @@ def build_tune_model(model_tune_params,
         data_store_file = open(data_store_file_name, 'a+')
         pickle.dump(data_store, data_store_file)
         data_store_file.close()
-
 
         key_file_name = cnn.name + '_tuning_' + socket.gethostname() + '.p'
         # Upload to AWS S3 bucket
