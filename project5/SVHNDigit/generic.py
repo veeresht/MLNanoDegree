@@ -4,6 +4,7 @@ import cPickle as pickle
 import warnings
 import boto3
 import socket
+import cv2
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
 from keras.callbacks import TensorBoard, EarlyStopping, Callback, ModelCheckpoint
@@ -19,6 +20,7 @@ def read_dataset(data_dir,
                  val_size=5033,
                  seed=131,
                  reshape=False,
+                 applyLCN=False,
                  verbose=1):
 
     # Load SVHN Dataset (single digits)
@@ -40,15 +42,44 @@ def read_dataset(data_dir,
         test_X = test_X.reshape((image_size *
                                  image_size *
                                  image_depth, -1)).astype(np.float32)
+        train_X /= 255.0
+        test_X /= 255.0
     else:
+
+        # Apply local contrast normalization (adaptive histogram equalization)
+        # using 8 x 8 windows
+        if applyLCN:
+            for i in range(train_X.shape[3]):
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
+                frame = train_X[:, :, :, i]
+                yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+                yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
+                frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
+                frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
+                frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
+                frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
+                train_X[:, :, :, i] = frame
+
+            for i in range(test_X.shape[3]):
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
+                frame = test_X[:, :, :, i]
+                yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+                yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
+                frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
+                frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
+                frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
+                frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
+                test_X[:, :, :, i] = frame
+
+        train_X = train_X.T
+        test_X = test_X.T
+
         train_X = train_X.astype(np.float32)
         test_X = test_X.astype(np.float32)
 
-    train_X = train_X.T
-    test_X = test_X.T
-
     train_X /= 255.0
     test_X /= 255.0
+
     # train_X = (train_X - np.mean(train_X, axis=0))/np.std(train_X, axis=0)
     # test_X = (test_X - np.mean(test_X, axis=0))/np.std(test_X, axis=0)
 
@@ -193,9 +224,9 @@ def train_model(network, model_train_params,
                 train_X, train_y,
                 val_X, val_y,
                 verbose=0,
-                tb_logs=False):
+                tb_logs=False,
+                save_to_s3=False):
 
-    s3 = boto3.resource('s3')
     loss = model_train_params['loss']
     optimizer = model_train_params['optimizer']
     metrics = model_train_params['metrics']
@@ -222,6 +253,11 @@ def train_model(network, model_train_params,
     early_stopping = EarlyStopping(monitor='val_loss',
                                    patience=1, verbose=0, mode='auto')
     callbacks.append(early_stopping)
+
+    if save_to_s3:
+        s3 = boto3.resource('s3')
+    else:
+        s3 = None
 
     model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
                                              monitor='val_loss',

@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from SVHNDigit.generic import read_dataset, train_model
-from SVHNDigit.models.cnn.model import LeNet5Mod
+from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet
 
 # Load SVHNDigit data
 
@@ -23,11 +23,17 @@ train_X, train_y, val_X, val_y, test_X, test_y = \
 # train_y_small = train_y[0:num_samples]
 
 # Hyperparameters selected by tuning
-lr = 0.08
-decay = 3e-3
-reg_factor = 5e-6
+# lr = 0.08
+# decay = 3e-3
+# reg_factor = 5e-6
+# dropout_param = 0.1
+# momentum = 0.8
+
+lr = 1e-2
+decay = 1e-3
+reg_factor = 1e-5
 dropout_param = 0.1
-momentum = 0.8
+momentum = 0.9
 
 model_define_params = {'reg_factor': reg_factor,
                        'init': 'glorot_normal',
@@ -42,12 +48,13 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'decay': decay,
                       'nesterov': True,
                       'metrics': ['accuracy'],
-                      'batch_size': 256,
+                      'batch_size': 1024,
                       'nb_epochs': 20}
 
 
 input_dim = train_X.shape[1:]
-cnn = LeNet5Mod(model_define_params, input_dim)
+# cnn = LeNet5Mod(model_define_params, input_dim)
+cnn = HintonNet(model_define_params, input_dim)
 cnn.define(verbose=0)
 history = train_model(cnn, model_train_params,
                       train_X, train_y,
