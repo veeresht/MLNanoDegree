@@ -4,19 +4,13 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from SVHNDigit.generic import read_dataset, train_model
-from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet
+from SVHNDigit.generic import train_model_from_images
+from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet1, SermanetNet
 
 # Load SVHNDigit data
 
-data_dir = 'data'
-train_filename = 'train_32x32.mat'
-test_filename = 'test_32x32.mat'
-
-print "Loading SVHN Digit Dataset ..."
-train_X, train_y, val_X, val_y, test_X, test_y = \
-    read_dataset(data_dir, train_filename, test_filename,
-                 val_size=20132, reshape=False)
+train_data_dir = 'data/imgs/train'
+validation_data_dir = 'data/imgs/validation'
 
 # num_samples = 2560
 # train_X_small = train_X[0:num_samples, :, :, :]
@@ -29,7 +23,7 @@ train_X, train_y, val_X, val_y, test_X, test_y = \
 # dropout_param = 0.1
 # momentum = 0.8
 
-lr = 1e-2
+lr = 5e-2
 decay = 1e-3
 reg_factor = 1e-5
 dropout_param = 0.1
@@ -37,7 +31,7 @@ momentum = 0.9
 
 model_define_params = {'reg_factor': reg_factor,
                        'init': 'glorot_normal',
-                       'use_dropout': True,
+                       'use_dropout': False,
                        'dropout_param': dropout_param,
                        'use_batchnorm': True}
 
@@ -46,17 +40,18 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'lr': lr,
                       'momentum': momentum,
                       'decay': decay,
-                      'nesterov': True,
+                      'nesterov': False,
                       'metrics': ['accuracy'],
-                      'batch_size': 1024,
-                      'nb_epochs': 20}
+                      'batch_size': 128,
+                      'nb_epochs': 20,
+                      'nb_train_samples': 99712,
+                      'nb_validation_samples': 6000}
 
 
-input_dim = train_X.shape[1:]
-# cnn = LeNet5Mod(model_define_params, input_dim)
-cnn = HintonNet(model_define_params, input_dim)
-cnn.define(verbose=0)
-history = train_model(cnn, model_train_params,
-                      train_X, train_y,
-                      val_X, val_y,
-                      verbose=1)
+input_dim = (3, 32, 32)
+cnn = LeNet5Mod(model_define_params, input_dim)
+#cnn = SermanetNet(model_define_params, input_dim)
+cnn.define(verbose=1)
+history = train_model_from_images(cnn, model_train_params,
+                                  train_data_dir, validation_data_dir,
+                                  verbose=1)

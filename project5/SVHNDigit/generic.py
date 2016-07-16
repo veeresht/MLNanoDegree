@@ -5,18 +5,20 @@ import warnings
 import boto3
 import socket
 import cv2
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
 from keras.callbacks import TensorBoard, EarlyStopping, Callback, ModelCheckpoint
 
 from sklearn.cross_validation import train_test_split
 
-from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod
+from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod, HintonNet1, SermanetNet
 
 
 def read_dataset(data_dir,
                  train_filename,
                  test_filename,
+                 extra_filename,
                  val_size=5033,
                  seed=131,
                  reshape=False,
@@ -26,12 +28,20 @@ def read_dataset(data_dir,
     # Load SVHN Dataset (single digits)
     train_data = scipy_io.loadmat(data_dir + '/' + train_filename)
     test_data = scipy_io.loadmat(data_dir + '/' + test_filename)
+    extra_data = scipy_io.loadmat(data_dir + '/' + extra_filename)
 
     image_size = train_data['X'].shape[0]
     image_depth = train_data['X'].shape[2]
 
     train_X, train_y = train_data['X'], train_data['y']
     test_X, test_y = test_data['X'], test_data['y']
+    # extra_X, extra_y = extra_data['X'][:, :, :, 0:200000], extra_data['y'][0:200000]
+    extra_X, extra_y = extra_data['X'], extra_data['y']
+
+    del extra_data
+
+    train_X = np.concatenate((train_X, extra_X), axis=3)
+    train_y = np.vstack((train_y, extra_y))
 
     # Reshape images from 3D to 2D
     # Useful only for fully connected neural networks
@@ -220,11 +230,96 @@ class ModelCheckpoint2S3(Callback):
             self.model.save_weights(filepath, overwrite=True)
 
 
+def train_model_from_images(network, model_train_params,
+                            train_data_dir, validation_data_dir,
+                            verbose=0, tb_logs=False, early_stopping=False,
+                            save_to_s3=False):
+
+    # dimensions of our images.
+    img_width, img_height = network.input_dim[1:]
+    loss = model_train_params['loss']
+    optimizer = model_train_params['optimizer']
+    metrics = model_train_params['metrics']
+    batch_size = model_train_params['batch_size']
+    nb_epochs = model_train_params['nb_epochs']
+    nb_train_samples = model_train_params['nb_train_samples']
+    nb_validation_samples = model_train_params['nb_validation_samples']
+
+    # this is the augmentation configuration we will use for training
+    train_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    # this is the augmentation configuration we will use for testing:
+    # only rescaling
+    test_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    train_generator = \
+        train_datagen.flow_from_directory(train_data_dir,
+                                          target_size=(img_width, img_height),
+                                          batch_size=batch_size,
+                                          classes=['0', '1', '2', '3', '4',
+                                                   '5', '6', '7', '8', '9'],
+                                          class_mode='categorical')
+
+    validation_generator = \
+        test_datagen.flow_from_directory(validation_data_dir,
+                                         target_size=(img_width, img_height),
+                                         batch_size=batch_size,
+                                         classes=['0', '1', '2', '3', '4',
+                                                  '5', '6', '7', '8', '9'],
+                                         class_mode='categorical')
+
+    if optimizer == 'sgd':
+        optimizer = SGD(lr=model_train_params['lr'],
+                        momentum=model_train_params['momentum'],
+                        decay=model_train_params['decay'],
+                        nesterov=model_train_params['nesterov'])
+    elif optimizer == 'adam':
+        optimizer = Adam(lr=model_train_params['lr'])
+
+    network.model.compile(loss=loss,
+                          metrics=metrics,
+                          optimizer=optimizer)
+
+    callbacks = []
+    if tb_logs:
+        tb_callback = TensorBoard(log_dir='./logs', histogram_freq=1)
+        callbacks = [tb_callback]
+
+    if early_stopping:
+        early_stopping = EarlyStopping(monitor='val_loss',
+                                       patience=3, verbose=0, mode='auto')
+        callbacks.append(early_stopping)
+
+    if save_to_s3:
+        s3 = boto3.resource('s3')
+    else:
+        s3 = None
+
+    model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
+                                             monitor='val_loss',
+                                             save_best_only=True,
+                                             verbose=0,
+                                             s3resource=s3,
+                                             s3filename=network.name + '.h5')
+
+    callbacks.append(model_checkpoint_cb)
+
+    history = network.model.fit_generator(train_generator,
+                                          samples_per_epoch=nb_train_samples,
+                                          nb_epoch=nb_epochs,
+                                          validation_data=validation_generator,
+                                          nb_val_samples=nb_validation_samples,
+                                          verbose=1)
+
+    return history
+
+
 def train_model(network, model_train_params,
                 train_X, train_y,
                 val_X, val_y,
                 verbose=0,
                 tb_logs=False,
+                early_stopping=False,
                 save_to_s3=False):
 
     loss = model_train_params['loss']
@@ -250,9 +345,10 @@ def train_model(network, model_train_params,
         tb_callback = TensorBoard(log_dir='./logs', histogram_freq=1)
         callbacks = [tb_callback]
 
-    early_stopping = EarlyStopping(monitor='val_loss',
-                                   patience=1, verbose=0, mode='auto')
-    callbacks.append(early_stopping)
+    if early_stopping:
+        early_stopping = EarlyStopping(monitor='val_loss',
+                                       patience=3, verbose=0, mode='auto')
+        callbacks.append(early_stopping)
 
     if save_to_s3:
         s3 = boto3.resource('s3')
@@ -278,15 +374,17 @@ def train_model(network, model_train_params,
     return history
 
 
-def build_tune_model(model_tune_params,
-                     model_train_params,
-                     model_define_params,
-                     train_X, train_y,
-                     val_X, val_y,
-                     num_iters,
-                     verbose=1):
+def build_tune_model_from_images(model_name, model_tune_params,
+                                 model_train_params,
+                                 model_define_params,
+                                 train_data_dir,
+                                 validation_data_dir,
+                                 num_iters,
+                                 verbose=1):
 
     s3 = boto3.resource('s3')
+
+    print "Tuning", model_name, "..."
 
     for i in range(num_iters):
         print "==========================================================="
@@ -310,22 +408,21 @@ def build_tune_model(model_tune_params,
                 if verbose > 0:
                     print k, ':', model_define_params[k]
 
-        input_dim = train_X.shape[1:]
-        cnn = LeNet5Mod(model_define_params, input_dim)
+        input_dim = (3, 32, 32)
+        if model_name == 'HintonNet1':
+            cnn = HintonNet1(model_define_params, input_dim)
+        elif model_name == 'SermanetNet':
+            cnn = SermanetNet(model_define_params, input_dim)
+        elif model_name == 'LeNet5Mod':
+            cnn = LeNet5Mod(model_define_params, input_dim)
         cnn.define(verbose=0)
-        history = train_model(cnn, model_train_params,
-                              train_X, train_y,
-                              val_X, val_y,
-                              verbose=verbose)
-
-        score, acc = cnn.model.evaluate(val_X, val_y, batch_size=256,
-                                        verbose=verbose)
-        if verbose == 1:
-            print 'Validation Loss: %0.4f' % (score)
-            print 'Validation Accuracy: %0.4f' % (acc)
+        history = train_model_from_images(cnn, model_train_params,
+                                          train_data_dir,
+                                          validation_data_dir,
+                                          verbose=verbose, save_to_s3=True)
 
         data_store = (model_define_params, model_train_params,
-                      history.history, history.params, score, acc)
+                      history.history, history.params)
 
         data_store_file_name = cnn.name + '_tuning.p'
         data_store_file = open(data_store_file_name, 'a+')
