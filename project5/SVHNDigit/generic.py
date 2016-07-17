@@ -231,12 +231,6 @@ class ModelCheckpoint2S3(Callback):
             self.model.save_weights(filepath, overwrite=True)
 
 
-def lr_schedule(epoch_idx):
-
-    if epoch_idx == 5:
-
-
-
 def train_model_from_images(network, model_train_params,
                             train_data_dir, validation_data_dir,
                             verbose=0, tb_logs=False, early_stopping=False,
