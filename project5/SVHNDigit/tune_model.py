@@ -16,7 +16,7 @@ validation_data_dir = 'data/imgs/validation'
 # train_y_small = train_y[0:num_samples]
 
 lr = 1e-2
-#decay = 1e-4
+decay = 0
 reg_factor = 2e-6
 dropout_param = 0.05
 momentum = 0.9
@@ -31,6 +31,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'optimizer': 'sgd',
                       'lr': lr,
                       'momentum': momentum,
+                      'decay': decay,
                       'nesterov': True,
                       'metrics': ['accuracy'],
                       'batch_size': 128,
