@@ -9,6 +9,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
 from keras.callbacks import TensorBoard, EarlyStopping, Callback, ModelCheckpoint
+from keras.callbacks import LearningRateScheduler
 
 from sklearn.cross_validation import train_test_split
 
@@ -230,6 +231,12 @@ class ModelCheckpoint2S3(Callback):
             self.model.save_weights(filepath, overwrite=True)
 
 
+def lr_schedule(epoch_idx):
+
+    if epoch_idx == 5:
+
+
+
 def train_model_from_images(network, model_train_params,
                             train_data_dir, validation_data_dir,
                             verbose=0, tb_logs=False, early_stopping=False,
@@ -294,6 +301,15 @@ def train_model_from_images(network, model_train_params,
         s3 = boto3.resource('s3')
     else:
         s3 = None
+
+    def scheduler(epoch):
+        if epoch == 5 or epoch == 10:
+            network.model.lr.set_value(network.lr.get_value() * 0.2)
+        return network.model.lr.get_value()
+
+    change_lr = LearningRateScheduler(scheduler)
+
+    callbacks.append(change_lr)
 
     model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
                                              monitor='val_loss',
@@ -419,7 +435,8 @@ def build_tune_model_from_images(model_name, model_tune_params,
         history = train_model_from_images(cnn, model_train_params,
                                           train_data_dir,
                                           validation_data_dir,
-                                          verbose=verbose, save_to_s3=True)
+                                          verbose=verbose, save_to_s3=True,
+                                          early_stopping=True)
 
         data_store = (model_define_params, model_train_params,
                       history.history, history.params)
