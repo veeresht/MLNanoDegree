@@ -13,7 +13,7 @@ from keras.callbacks import LearningRateScheduler
 
 from sklearn.cross_validation import train_test_split
 
-from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod, HintonNet1, SermanetNet
+from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod, HintonNet1, SermanetNet, CNN_B
 
 
 def read_dataset(data_dir,
@@ -425,6 +425,8 @@ def build_tune_model_from_images(model_name, model_tune_params,
             cnn = SermanetNet(model_define_params, input_dim)
         elif model_name == 'LeNet5Mod':
             cnn = LeNet5Mod(model_define_params, input_dim)
+        elif model_name == 'CNN_B':
+            cnn = CNN_B(model_define_params, input_dim)
         cnn.define(verbose=0)
         history = train_model_from_images(cnn, model_train_params,
                                           train_data_dir,

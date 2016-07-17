@@ -49,8 +49,8 @@ model_train_params = {'loss': 'categorical_crossentropy',
 
 
 input_dim = (3, 32, 32)
-# cnn = CNN_B(model_define_params, input_dim)
-cnn = LeNet5Mod(model_define_params, input_dim)
+cnn = CNN_B(model_define_params, input_dim)
+# cnn = LeNet5Mod(model_define_params, input_dim)
 #cnn = SermanetNet(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params,
