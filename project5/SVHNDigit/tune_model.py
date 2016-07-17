@@ -35,8 +35,8 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'nesterov': True,
                       'metrics': ['accuracy'],
                       'batch_size': 128,
-                      'nb_epochs': 20,
-                      'nb_train_samples': 99712,
+                      'nb_epochs': 3,
+                      'nb_train_samples': 99712 * 6,
                       'nb_validation_samples': 6000}
 
 model_tune_params = {  # [1e-3, 1e-1]

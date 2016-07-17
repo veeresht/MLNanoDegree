@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from SVHNDigit.generic import train_model_from_images
-from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet1, SermanetNet
+from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet1, SermanetNet, CNN_B
 
 # Load SVHNDigit data
 
@@ -40,7 +40,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'lr': lr,
                       'momentum': momentum,
                       'decay': decay,
-                      'nesterov': False,
+                      'nesterov': True,
                       'metrics': ['accuracy'],
                       'batch_size': 128,
                       'nb_epochs': 20,
@@ -49,6 +49,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
 
 
 input_dim = (3, 32, 32)
+# cnn = CNN_B(model_define_params, input_dim)
 cnn = LeNet5Mod(model_define_params, input_dim)
 #cnn = SermanetNet(model_define_params, input_dim)
 cnn.define(verbose=1)
