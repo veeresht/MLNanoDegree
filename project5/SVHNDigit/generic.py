@@ -4,7 +4,7 @@ import cPickle as pickle
 import warnings
 import boto3
 import socket
-import cv2
+# import cv2
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
@@ -59,28 +59,28 @@ def read_dataset(data_dir,
 
         # Apply local contrast normalization (adaptive histogram equalization)
         # using 8 x 8 windows
-        if applyLCN:
-            for i in range(train_X.shape[3]):
-                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
-                frame = train_X[:, :, :, i]
-                yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-                yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
-                frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
-                frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
-                frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
-                frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
-                train_X[:, :, :, i] = frame
+        # if applyLCN:
+        #     for i in range(train_X.shape[3]):
+        #         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
+        #         frame = train_X[:, :, :, i]
+        #         yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+        #         yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
+        #         frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
+        #         frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
+        #         frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
+        #         frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
+        #         train_X[:, :, :, i] = frame
 
-            for i in range(test_X.shape[3]):
-                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
-                frame = test_X[:, :, :, i]
-                yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-                yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
-                frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
-                frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
-                frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
-                frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
-                test_X[:, :, :, i] = frame
+        #     for i in range(test_X.shape[3]):
+        #         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
+        #         frame = test_X[:, :, :, i]
+        #         yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
+        #         yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
+        #         frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
+        #         frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
+        #         frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
+        #         frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
+        #         test_X[:, :, :, i] = frame
 
         train_X = train_X.T
         test_X = test_X.T
