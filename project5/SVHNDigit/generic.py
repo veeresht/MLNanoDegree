@@ -297,8 +297,8 @@ def train_model_from_images(network, model_train_params,
         s3 = None
 
     def scheduler(epoch):
-        if epoch == 5 or epoch == 10:
-            network.model.lr.set_value(network.lr.get_value() * 0.2)
+        if epoch == 1 or epoch == 2:
+            network.model.lr.set_value(network.lr.get_value() * 0.5)
         return network.model.lr.get_value()
 
     change_lr = LearningRateScheduler(scheduler)

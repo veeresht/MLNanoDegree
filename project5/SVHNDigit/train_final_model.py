@@ -44,7 +44,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'metrics': ['accuracy'],
                       'batch_size': 128,
                       'nb_epochs': 20,
-                      'nb_train_samples': 99712,
+                      'nb_train_samples': 99712 * 6,
                       'nb_validation_samples': 6000}
 
 

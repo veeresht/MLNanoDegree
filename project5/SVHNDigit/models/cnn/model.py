@@ -232,7 +232,7 @@ class CNN_B(object):
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
         # Conv-Relu Layer
-        self.model.add(Convolution2D(32, 3, 3, border_mode='same',
+        self.model.add(Convolution2D(16, 3, 3, border_mode='same',
                                      input_shape=self.input_dim,
                                      W_regularizer=l2(self.reg_factor),
                                      init=self.init, subsample=(1, 1)))
@@ -259,7 +259,7 @@ class CNN_B(object):
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
         # Conv-Relu Layer
-        self.model.add(Convolution2D(64, 3, 3, border_mode='same',
+        self.model.add(Convolution2D(32, 3, 3, border_mode='same',
                                      input_shape=self.input_dim,
                                      W_regularizer=l2(self.reg_factor),
                                      init=self.init, subsample=(1, 1)))

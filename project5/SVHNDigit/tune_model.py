@@ -50,8 +50,8 @@ model_tune_params = {  # [1e-3, 1e-1]
                        # [0.8, 0.99]
                        #'momentum': [-0.1, -0.004]}
 
-num_iters = 10
-model_name = 'LeNet5Mod'
+num_iters = 3
+model_name = 'CNN_B'
 build_tune_model_from_images(model_name, model_tune_params,
                              model_train_params,
                              model_define_params,
