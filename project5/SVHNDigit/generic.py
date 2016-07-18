@@ -247,11 +247,13 @@ def train_model_from_images(network, model_train_params,
     nb_validation_samples = model_train_params['nb_validation_samples']
 
     # this is the augmentation configuration we will use for training
-    train_datagen = ImageDataGenerator(rescale=1.0/255)
+    train_datagen = ImageDataGenerator(rescale=1.0/255,
+                                       samplewise_center=True)
 
     # this is the augmentation configuration we will use for testing:
     # only rescaling
-    test_datagen = ImageDataGenerator(rescale=1.0/255)
+    test_datagen = ImageDataGenerator(rescale=1.0/255,
+                                      samplewise_center=True)
 
     train_generator = \
         train_datagen.flow_from_directory(train_data_dir,
@@ -297,8 +299,7 @@ def train_model_from_images(network, model_train_params,
         s3 = None
 
     def scheduler(epoch):
-        if epoch == 1 or epoch == 2:
-            network.model.lr.set_value(network.lr.get_value() * 0.5)
+        network.model.lr.set_value(network.lr.get_value() * 0.5)
         return network.model.lr.get_value()
 
     change_lr = LearningRateScheduler(scheduler)

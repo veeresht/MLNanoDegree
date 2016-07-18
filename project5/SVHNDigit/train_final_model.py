@@ -16,18 +16,22 @@ validation_data_dir = 'data/imgs/validation'
 # train_X_small = train_X[0:num_samples, :, :, :]
 # train_y_small = train_y[0:num_samples]
 
-# Hyperparameters selected by tuning
-# lr = 0.08
-# decay = 3e-3
-# reg_factor = 5e-6
-# dropout_param = 0.1
-# momentum = 0.8
+# Hyperparameters selected by tuning (LeNet5Mod)
+lr = 0.02
+reg_factor = 2e-5
 
-lr = 5e-2
-decay = 1e-3
-reg_factor = 1e-5
-dropout_param = 0.1
+# Hyperparameters selected by tuning (CNN_B)
+# lr = 0.03
+# reg_factor = 3e-6
+
+decay = 0
+dropout_param = 0.05
 momentum = 0.9
+# lr = 5e-2
+# decay = 1e-3
+# reg_factor = 1e-5
+# dropout_param = 0.1
+# momentum = 0.9
 
 model_define_params = {'reg_factor': reg_factor,
                        'init': 'glorot_normal',
@@ -49,10 +53,10 @@ model_train_params = {'loss': 'categorical_crossentropy',
 
 
 input_dim = (3, 32, 32)
-cnn = CNN_B(model_define_params, input_dim)
-# cnn = LeNet5Mod(model_define_params, input_dim)
+# cnn = CNN_B(model_define_params, input_dim)
+cnn = LeNet5Mod(model_define_params, input_dim)
 #cnn = SermanetNet(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params,
                                   train_data_dir, validation_data_dir,
-                                  verbose=1)
+                                  verbose=1, save_to_s3=True, early_stopping=False)
