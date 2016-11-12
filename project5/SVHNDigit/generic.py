@@ -8,23 +8,18 @@ import socket
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard, EarlyStopping, Callback, ModelCheckpoint
+from keras.callbacks import TensorBoard, EarlyStopping, Callback
 from keras.callbacks import LearningRateScheduler
 
 from sklearn.cross_validation import train_test_split
 
-from SVHNDigit.models.cnn.model import CNN_1, LeNet5Mod, HintonNet1, SermanetNet, CNN_B
+from SVHNDigit.models.cnn import LeNet5Mod, HintonNet1, SermanetNet, CNN_B, InceptionNet
 
 
-def read_dataset(data_dir,
-                 train_filename,
-                 test_filename,
-                 extra_filename,
-                 val_size=5033,
-                 seed=131,
-                 reshape=False,
-                 applyLCN=False,
+def read_dataset(data_dir, train_filename, test_filename, extra_filename,
+                 val_size=5033, seed=131, reshape=False, applyLCN=False,
                  verbose=1):
+    """ Function to the read the SVHN dataset .mat files """
 
     # Load SVHN Dataset (single digits)
     train_data = scipy_io.loadmat(data_dir + '/' + train_filename)
@@ -36,7 +31,6 @@ def read_dataset(data_dir,
 
     train_X, train_y = train_data['X'], train_data['y']
     test_X, test_y = test_data['X'], test_data['y']
-    # extra_X, extra_y = extra_data['X'][:, :, :, 0:200000], extra_data['y'][0:200000]
     extra_X, extra_y = extra_data['X'], extra_data['y']
 
     del extra_data
@@ -57,31 +51,6 @@ def read_dataset(data_dir,
         test_X /= 255.0
     else:
 
-        # Apply local contrast normalization (adaptive histogram equalization)
-        # using 8 x 8 windows
-        # if applyLCN:
-        #     for i in range(train_X.shape[3]):
-        #         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
-        #         frame = train_X[:, :, :, i]
-        #         yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-        #         yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
-        #         frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
-        #         frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
-        #         frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
-        #         frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
-        #         train_X[:, :, :, i] = frame
-
-        #     for i in range(test_X.shape[3]):
-        #         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(7, 7))
-        #         frame = test_X[:, :, :, i]
-        #         yuv_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV)
-        #         yuv_frame[:, :, 0] = clahe.apply(yuv_frame[:, :, 0])
-        #         frame = cv2.cvtColor(yuv_frame, cv2.COLOR_YUV2RGB)
-        #         frame[:, :, 0] = cv2.equalizeHist(frame[:, :, 0])
-        #         frame[:, :, 1] = cv2.equalizeHist(frame[:, :, 1])
-        #         frame[:, :, 2] = cv2.equalizeHist(frame[:, :, 2])
-        #         test_X[:, :, :, i] = frame
-
         train_X = train_X.T
         test_X = test_X.T
 
@@ -90,9 +59,6 @@ def read_dataset(data_dir,
 
     train_X /= 255.0
     test_X /= 255.0
-
-    # train_X = (train_X - np.mean(train_X, axis=0))/np.std(train_X, axis=0)
-    # test_X = (test_X - np.mean(test_X, axis=0))/np.std(test_X, axis=0)
 
     train_y = train_y.squeeze()
     test_y = test_y.squeeze()
@@ -121,51 +87,9 @@ def read_dataset(data_dir,
     return train_X, train_y, val_X, val_y, test_X, test_y
 
 
-class EarlyBatchTermination(Callback):
-    '''Stop training when a monitored quantity has stopped improving.
-    # Arguments
-        monitor: quantity to be monitored.
-        patience: number of epochs with no improvement
-            after which training will be stopped.
-        verbose: verbosity mode.
-        mode: one of {auto, min, max}. In 'min' mode,
-            training will stop when the quantity
-            monitored has stopped decreasing; in 'max'
-            mode it will stop when the quantity
-            monitored has stopped increasing.
-    '''
-
-    def __init__(self, monitor='loss', interval=10, verbose=0):
-        super(EarlyBatchTermination, self).__init__()
-
-        self.monitor = monitor
-        self.interval = interval
-        self.verbose = verbose
-        self.batch_count = 0
-
-    def on_train_begin(self, logs={}):
-        self.prev_batch_loss = 1000
-        self.current_batch_loss = 0
-
-    def on_batch_end(self, batch, logs={}):
-
-        if self.batch_count % self.interval == 0:
-            self.current_batch_loss = logs.get('loss')
-            if (((abs(self.prev_batch_loss - self.current_batch_loss)) /
-                 (self.prev_batch_loss + 1.0e-8)) < 0.1):
-                if self.verbose > 0:
-                    print('Early Batch Termination')
-                self.model.stop_training = True
-            self.prev_batch_loss = self.current_batch_loss
-        self.batch_count += 1
-
-    def on_epoch_end(self, epoch, logs={}):
-        self.prev_batch_loss = 1000
-        self.current_batch_loss = 0
-        self.batch_count = 0
-
-
 class ModelCheckpoint2S3(Callback):
+    """ Customized ModelCheckpoint callback to upload the model checkpoint file
+    to AWS S3. """
 
     def __init__(self, filepath, monitor='val_loss', verbose=0,
                  save_best_only=False, mode='auto', s3resource=None,
@@ -235,6 +159,8 @@ def train_model_from_images(network, model_train_params,
                             train_data_dir, validation_data_dir,
                             verbose=0, tb_logs=False, early_stopping=False,
                             save_to_s3=False):
+    """ Train and validate the Convolutional Neural Network (CNN) model
+    by reading data from image folders. """
 
     # dimensions of our images.
     img_width, img_height = network.input_dim[1:]
@@ -252,7 +178,7 @@ def train_model_from_images(network, model_train_params,
 
     # this is the augmentation configuration we will use for testing:
     # only rescaling
-    test_datagen = ImageDataGenerator(rescale=1.0/255,
+    val_datagen = ImageDataGenerator(rescale=1.0/255,
                                       samplewise_center=True)
 
     train_generator = \
@@ -264,7 +190,7 @@ def train_model_from_images(network, model_train_params,
                                           class_mode='categorical')
 
     validation_generator = \
-        test_datagen.flow_from_directory(validation_data_dir,
+        val_datagen.flow_from_directory(validation_data_dir,
                                          target_size=(img_width, img_height),
                                          batch_size=batch_size,
                                          classes=['0', '1', '2', '3', '4',
@@ -299,8 +225,8 @@ def train_model_from_images(network, model_train_params,
         s3 = None
 
     def scheduler(epoch):
-        network.model.lr.set_value(network.lr.get_value() * 0.5)
-        return network.model.lr.get_value()
+        init_lr = model_train_params['lr']
+        return init_lr * (0.8**epoch)
 
     change_lr = LearningRateScheduler(scheduler)
 
@@ -320,18 +246,58 @@ def train_model_from_images(network, model_train_params,
                                           nb_epoch=nb_epochs,
                                           validation_data=validation_generator,
                                           nb_val_samples=nb_validation_samples,
+                                          callbacks=callbacks,
                                           verbose=1)
 
     return history
 
+def eval_model_from_images(network, model_train_params,
+                           data_dir, verbose=0):
 
-def train_model(network, model_train_params,
-                train_X, train_y,
-                val_X, val_y,
-                verbose=0,
+    # dimensions of our images.
+    img_width, img_height = network.input_dim[1:]
+    batch_size = model_train_params['batch_size']
+    loss = model_train_params['loss']
+    optimizer = model_train_params['optimizer']
+    metrics = model_train_params['metrics']
+    nb_test_samples = model_train_params['nb_test_samples']
+
+    eval_datagen = ImageDataGenerator(rescale=1.0/255,
+                                      samplewise_center=False)
+
+    eval_generator = \
+        eval_datagen.flow_from_directory(data_dir,
+                                         target_size=(img_width, img_height),
+                                         batch_size=batch_size,
+                                         classes=['0', '1', '2', '3', '4',
+                                                  '5', '6', '7', '8', '9'],
+                                         class_mode='categorical',
+                                         shuffle=False)
+
+    if optimizer == 'sgd':
+        optimizer = SGD(lr=model_train_params['lr'],
+                        momentum=model_train_params['momentum'],
+                        decay=model_train_params['decay'],
+                        nesterov=model_train_params['nesterov'])
+    elif optimizer == 'adam':
+        optimizer = Adam(lr=model_train_params['lr'])
+
+    network.model.compile(loss=loss,
+                          metrics=metrics,
+                          optimizer=optimizer)
+
+    outputs = \
+        network.model.evaluate_generator(eval_generator, nb_test_samples)
+
+    return outputs
+
+def train_model(network, model_train_params, train_X, train_y,
+                val_X, val_y, verbose=0,
                 tb_logs=False,
                 early_stopping=False,
                 save_to_s3=False):
+    """ Train and validate the Convolutional Neural Network (CNN) model by
+    using input train and validation data matrices. """
 
     loss = model_train_params['loss']
     optimizer = model_train_params['optimizer']
@@ -392,6 +358,8 @@ def build_tune_model_from_images(model_name, model_tune_params,
                                  validation_data_dir,
                                  num_iters,
                                  verbose=1):
+    """ Top level wrapper function to build the CNN model and then train and tune
+    the model parameters using cross-validation. """
 
     s3 = boto3.resource('s3')
 
@@ -428,6 +396,8 @@ def build_tune_model_from_images(model_name, model_tune_params,
             cnn = LeNet5Mod(model_define_params, input_dim)
         elif model_name == 'CNN_B':
             cnn = CNN_B(model_define_params, input_dim)
+        elif model_name == 'InceptionNet':
+            cnn = InceptionNet(model_define_params, input_dim)
         cnn.define(verbose=0)
         history = train_model_from_images(cnn, model_train_params,
                                           train_data_dir,
@@ -447,3 +417,36 @@ def build_tune_model_from_images(model_name, model_tune_params,
         # Upload to AWS S3 bucket
         bucket = s3.Bucket('mlnd')
         bucket.upload_file(data_store_file_name, key_file_name)
+
+
+def save_bottleneck_features(network, model_train_params,
+                             train_data_dir, validation_data_dir,
+                             test_data_dir, verbose=0):
+    """ Generate and save the output feature vectors of a CNN model. """
+
+    # dimensions of our images.
+    img_width, img_height = network.input_dim[1:]
+    loss = model_train_params['loss']
+    optimizer = model_train_params['optimizer']
+    metrics = model_train_params['metrics']
+    batch_size = model_train_params['batch_size']
+    nb_epochs = model_train_params['nb_epochs']
+    nb_train_samples = model_train_params['nb_train_samples']
+    nb_validation_samples = model_train_params['nb_validation_samples']
+    nb_test_samples = model_train_params['nb_test_samples']
+
+    train_datagen = ImageDataGenerator(rescale=1.0/255)
+    validation_datagen = ImageDataGenerator(rescale=1.0/255)
+    test_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    test_generator = \
+        test_datagen.flow_from_directory(test_data_dir,
+                                         target_size=(img_width, img_height),
+                                         batch_size=batch_size,
+                                         class_mode=None,
+                                         shuffle=False)
+
+    bottleneck_features_test = \
+        network.model.predict_generator(test_generator, nb_test_samples)
+    np.save(open('data/features/' + network.name + '_bottleneck_features_test.npy', 'w'),
+            bottleneck_features_test)

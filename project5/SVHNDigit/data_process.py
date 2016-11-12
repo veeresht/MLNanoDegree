@@ -4,9 +4,13 @@ import skimage.io as skimage_io
 import os
 
 from sklearn.cross_validation import train_test_split
+from SVHNDigit.models.pretrained import VGG_16
 
 
 def gen_train_val_test_images(data_dir, seed=131):
+    """ Function to save training, testing and validation images as .png files from .mat
+    files provided for the SVHN dataset. """
+    np.random.seed(seed)
 
     # Load SVHN Dataset (single digits)
     train_data = scipy_io.loadmat(data_dir + '/train_32x32.mat')

@@ -5,19 +5,15 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from SVHNDigit.generic import train_model_from_images
-from SVHNDigit.models.cnn.model import LeNet5Mod, HintonNet1, SermanetNet, CNN_B
+from SVHNDigit.models.cnn import LeNet5Mod, HintonNet1, SermanetNet, CNN_B, InceptionNet
 
 # Load SVHNDigit data
 
 train_data_dir = 'data/imgs/train'
 validation_data_dir = 'data/imgs/validation'
 
-# num_samples = 2560
-# train_X_small = train_X[0:num_samples, :, :, :]
-# train_y_small = train_y[0:num_samples]
-
 # Hyperparameters selected by tuning (LeNet5Mod)
-lr = 0.02
+lr = 0.01
 reg_factor = 2e-5
 
 # Hyperparameters selected by tuning (CNN_B)
@@ -53,10 +49,11 @@ model_train_params = {'loss': 'categorical_crossentropy',
 
 
 input_dim = (3, 32, 32)
-# cnn = CNN_B(model_define_params, input_dim)
-cnn = LeNet5Mod(model_define_params, input_dim)
+cnn = CNN_B(model_define_params, input_dim)
+# cnn = LeNet5Mod(model_define_params, input_dim)
+# cnn = InceptionNet(model_define_params, input_dim)
 #cnn = SermanetNet(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params,
                                   train_data_dir, validation_data_dir,
-                                  verbose=1, save_to_s3=True, early_stopping=False)
+                                  verbose=1, save_to_s3=False, early_stopping=False)
