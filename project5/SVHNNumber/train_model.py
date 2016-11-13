@@ -5,7 +5,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from SVHNNumber.generic import train_model_from_images
-from SVHNNumber.models.cnn import CNN_B
+from SVHNNumber.models.cnn import CNN_B, LeNet5Mod, DigitConvNet
 
 # Load SVHNDigit data
 
@@ -17,6 +17,10 @@ validation_metadata_file = 'data/final/validation/validation.p'
 # Hyperparameters selected by tuning (CNN_B)
 lr = 0.03
 reg_factor = 3e-6
+
+# Hyperparameters selected by tuning (LeNet5Mod)
+# lr = 0.01
+# reg_factor = 2e-5
 
 decay = 0
 dropout_param = 0.05
@@ -41,13 +45,15 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'nesterov': True,
                       'metrics': ['accuracy'],
                       'batch_size': 128,
-                      'nb_epochs': 20,
+                      'nb_epochs': 6,
                       'nb_train_samples': 225664,
                       'nb_validation_samples': 10000}
 
 
 input_dim = (3, 64, 64)
-cnn = CNN_B(model_define_params, input_dim)
+#cnn = CNN_B(model_define_params, input_dim)
+# cnn = LeNet5Mod(model_define_params, input_dim)
+cnn = DigitConvNet(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params,
                                   train_data_dir, train_metadata_file,

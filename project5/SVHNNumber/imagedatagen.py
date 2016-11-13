@@ -480,7 +480,7 @@ class SVHNDirectoryIterator(Iterator):
 
         # first, count the number of samples
         self.nb_sample = 0
-        for fname in os.listdir(self.directory):
+        for fname in sorted(os.listdir(self.directory)):
             is_valid = False
             for extension in white_list_formats:
                 if fname.lower().endswith('.' + extension):
@@ -493,7 +493,7 @@ class SVHNDirectoryIterator(Iterator):
         # second, build an index of the images in the folder
         self.filenames = []
         i = 0
-        for fname in os.listdir(self.directory):
+        for fname in sorted(os.listdir(self.directory)):
             is_valid = False
             for extension in white_list_formats:
                 if fname.lower().endswith('.' + extension):
