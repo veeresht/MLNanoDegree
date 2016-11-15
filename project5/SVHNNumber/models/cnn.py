@@ -146,7 +146,7 @@ class VGGNetMod_2(object):
         input_image = Input(shape=self.input_dim, name='input_image')
 
         # Conv-Relu-MaxPool Layer
-        conv11 = Convolution2D(16, 3, 3, border_mode='same',
+        conv11 = Convolution2D(64, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(input_image)
         if self.use_batchnorm:
@@ -155,7 +155,7 @@ class VGGNetMod_2(object):
         conv11 = MaxPooling2D(pool_size=(2, 2))(conv11)
 
         # Conv-Relu-MaxPool Layer
-        conv21 = Convolution2D(16, 3, 3, border_mode='same',
+        conv21 = Convolution2D(64, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv11)
         if self.use_batchnorm:
@@ -164,7 +164,7 @@ class VGGNetMod_2(object):
         conv21 = MaxPooling2D(pool_size=(2, 2))(conv21)
 
         # Conv-Relu Layer
-        conv31 = Convolution2D(16, 3, 3, border_mode='same',
+        conv31 = Convolution2D(64, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv21)
         if self.use_batchnorm:
@@ -172,7 +172,7 @@ class VGGNetMod_2(object):
         conv31 = Activation('relu')(conv31)
 
         # Conv-Relu Layer
-        conv32 = Convolution2D(32, 3, 3, border_mode='same',
+        conv32 = Convolution2D(128, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv31)
         if self.use_batchnorm:
@@ -180,7 +180,7 @@ class VGGNetMod_2(object):
         conv32 = Activation('relu')(conv32)
 
         # Conv-Relu-MaxPool Layer
-        conv33 = Convolution2D(32, 1, 1, border_mode='same',
+        conv33 = Convolution2D(128, 1, 1, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv32)
         if self.use_batchnorm:
@@ -189,7 +189,7 @@ class VGGNetMod_2(object):
         conv33 = MaxPooling2D(pool_size=(2, 2))(conv33)
 
         # Conv-Relu Layer
-        conv41 = Convolution2D(32, 3, 3, border_mode='same',
+        conv41 = Convolution2D(128, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv33)
         if self.use_batchnorm:
@@ -197,7 +197,7 @@ class VGGNetMod_2(object):
         conv41 = Activation('relu')(conv41)
 
         # Conv-Relu Layer
-        conv42 = Convolution2D(64, 3, 3, border_mode='same',
+        conv42 = Convolution2D(256, 3, 3, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv41)
         if self.use_batchnorm:
@@ -205,7 +205,7 @@ class VGGNetMod_2(object):
         conv42 = Activation('relu')(conv42)
 
         # Conv-Relu-MaxPool Layer
-        conv43 = Convolution2D(64, 1, 1, border_mode='same',
+        conv43 = Convolution2D(256, 1, 1, border_mode='same',
                                W_regularizer=l2(self.reg_factor),
                                init=self.init, subsample=(1, 1))(conv42)
         if self.use_batchnorm:
