@@ -188,13 +188,13 @@ class LeNet5Mod(object):
         self.model.save_weights('./weights.h5')
 
 
-class CNN_B(object):
+class VGGNetMod_1(object):
     """ Custom Architecture based on VGGNet """
 
     def __init__(self, model_params, input_dim):
 
         # Name of the model
-        self.name = 'CNN_B'
+        self.name = 'VGGNetMod_1'
         # Weight initialization type
         self.init = model_params['init']
         # Dropout parameters
@@ -219,7 +219,9 @@ class CNN_B(object):
         if self.use_batchnorm:
             self.model.add(BatchNormalization(mode=0, axis=1))
         self.model.add(Activation('relu'))
-        self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        self.model.add(MaxPooling2D(pool_size=(2, 2),
+                                    strides=(1, 1),
+                                    border_mode='same'))
 
         # Conv-Relu-MaxPool Layer
         self.model.add(Convolution2D(16, 3, 3, border_mode='same',
@@ -228,33 +230,42 @@ class CNN_B(object):
         if self.use_batchnorm:
             self.model.add(BatchNormalization(mode=0, axis=1))
         self.model.add(Activation('relu'))
-        self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        self.model.add(MaxPooling2D(pool_size=(2, 2),
+                                    strides=(1, 1),
+                                    border_mode='same'))
 
-        # Conv-Relu Layer
+        # Conv-Relu-MaxPool Layer
         self.model.add(Convolution2D(16, 3, 3, border_mode='same',
                                      W_regularizer=l2(self.reg_factor),
                                      init=self.init, subsample=(1, 1)))
         if self.use_batchnorm:
             self.model.add(BatchNormalization(mode=0, axis=1))
         self.model.add(Activation('relu'))
-        #self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        self.model.add(MaxPooling2D(pool_size=(2, 2),
+                                    strides=(1, 1),
+                                    border_mode='same'))
 
-        # Conv-Relu Layer
+        # Conv-Relu-MaxPool Layer
         self.model.add(Convolution2D(32, 3, 3, border_mode='same',
                        W_regularizer=l2(self.reg_factor),
                        init=self.init, subsample=(1, 1)))
         if self.use_batchnorm:
             self.model.add(BatchNormalization(mode=0, axis=1))
         self.model.add(Activation('relu'))
+        self.model.add(MaxPooling2D(pool_size=(2, 2),
+                                    strides=(2, 2),
+                                    border_mode='same'))
 
         # Conv-Relu-MaxPool Layer
-        self.model.add(Convolution2D(32, 1, 1, border_mode='same',
-                       W_regularizer=l2(self.reg_factor),
-                       init=self.init, subsample=(1, 1)))
-        if self.use_batchnorm:
-            self.model.add(BatchNormalization(mode=0, axis=1))
-        self.model.add(Activation('relu'))
-        self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        # self.model.add(Convolution2D(32, 1, 1, border_mode='same',
+        #                W_regularizer=l2(self.reg_factor),
+        #                init=self.init, subsample=(1, 1)))
+        # if self.use_batchnorm:
+        #     self.model.add(BatchNormalization(mode=0, axis=1))
+        # self.model.add(Activation('relu'))
+        # self.model.add(MaxPooling2D(pool_size=(2, 2),
+        #                             strides=(1, 1),
+        #                             border_mode='same'))
 
         # Conv-Relu Layer
         self.model.add(Convolution2D(32, 3, 3, border_mode='same',
@@ -272,16 +283,20 @@ class CNN_B(object):
         if self.use_batchnorm:
             self.model.add(BatchNormalization(mode=0, axis=1))
         self.model.add(Activation('relu'))
+        self.model.add(MaxPooling2D(pool_size=(2, 2),
+                                    strides=(2, 2),
+                                    border_mode='same'))
+
 
         # Conv-Relu-MaxPool Layer
-        self.model.add(Convolution2D(64, 1, 1, border_mode='same',
-                                     W_regularizer=l2(self.reg_factor),
-                                     init=self.init, subsample=(1, 1)))
-        if self.use_batchnorm:
-            self.model.add(BatchNormalization(mode=0, axis=1))
-        self.model.add(Activation('relu'))
+        # self.model.add(Convolution2D(64, 1, 1, border_mode='same',
+        #                              W_regularizer=l2(self.reg_factor),
+        #                              init=self.init, subsample=(1, 1)))
+        # if self.use_batchnorm:
+        #     self.model.add(BatchNormalization(mode=0, axis=1))
+        # self.model.add(Activation('relu'))
 
-        self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        #self.model.add(MaxPooling2D(pool_size=(2, 2)))
 
         self.model.add(Flatten())
 

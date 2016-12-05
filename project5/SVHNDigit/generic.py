@@ -4,16 +4,22 @@ import cPickle as pickle
 import warnings
 import boto3
 import socket
+import time
 # import cv2
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard, EarlyStopping, Callback
+from keras.callbacks import TensorBoard, EarlyStopping, Callback, CSVLogger, ModelCheckpoint
 from keras.callbacks import LearningRateScheduler
 
 from sklearn.cross_validation import train_test_split
 
-from SVHNDigit.models.cnn import LeNet5Mod, HintonNet1, SermanetNet, CNN_B, InceptionNet
+from SVHNDigit.models.cnn import (
+    LeNet5Mod,
+    HintonNet1,
+    SermanetNet,
+    VGGNetMod_1,
+    InceptionNet)
 
 
 def read_dataset(data_dir, train_filename, test_filename, extra_filename,
@@ -155,9 +161,38 @@ class ModelCheckpoint2S3(Callback):
             self.model.save_weights(filepath, overwrite=True)
 
 
+class LossHistory(Callback):
+
+    def __init__(self, filepath, s3resource=None,
+                 s3filename=None):
+        self.filepath = filepath
+        self.s3resource = s3resource
+        self.s3filename = s3filename
+
+    def on_train_begin(self, logs={}):
+        self.losses = []
+
+    def on_batch_end(self, batch, logs={}):
+        self.losses.append(logs.get('loss'))
+
+    def on_epoch_end(self, epoch, logs={}):
+        np.savetxt(self.filepath, self.losses, delimiter=",")
+        if self.s3resource is not None:
+            # Upload to AWS S3 bucket
+            bucket = self.s3resource.Bucket('mlnd')
+            bucket.upload_file(self.s3filename, self.filepath)
+
+    def on_train_end(self, logs={}):
+        np.savetxt(self.filepath, self.losses, delimiter=",")
+        if self.s3resource is not None:
+            # Upload to AWS S3 bucket
+            bucket = self.s3resource.Bucket('mlnd')
+            bucket.upload_file(self.s3filename, self.filepath)
+
 def train_model_from_images(network, model_train_params,
                             train_data_dir, validation_data_dir,
-                            verbose=0, tb_logs=False, early_stopping=False,
+                            verbose=0, tb_logs=False, csv_log=False,
+                            early_stopping=False,
                             save_to_s3=False):
     """ Train and validate the Convolutional Neural Network (CNN) model
     by reading data from image folders. """
@@ -211,13 +246,21 @@ def train_model_from_images(network, model_train_params,
 
     callbacks = []
     if tb_logs:
-        tb_callback = TensorBoard(log_dir='./logs', histogram_freq=1)
+        tb_callback = TensorBoard(log_dir='./logs', histogram_freq=1,
+                                  write_graph=True)
         callbacks = [tb_callback]
 
     if early_stopping:
-        early_stopping = EarlyStopping(monitor='val_loss',
-                                       patience=3, verbose=0, mode='auto')
+        early_stopping = EarlyStopping(monitor='val_acc',
+                                       patience=2, min_delta=0.005,
+                                       verbose=0, mode='auto')
         callbacks.append(early_stopping)
+
+    if csv_log:
+        csv_filename = (network.name + '_lr_' + str(model_train_params['lr']) +
+                       '_l2weightdecay_' + str(model_train_params['decay']) + '.csv')
+        csv_logger_callback = CSVLogger(filename=csv_filename, append=True)
+        callbacks.append(csv_logger_callback)
 
     if save_to_s3:
         s3 = boto3.resource('s3')
@@ -226,20 +269,25 @@ def train_model_from_images(network, model_train_params,
 
     def scheduler(epoch):
         init_lr = model_train_params['lr']
-        return init_lr * (0.8**epoch)
+        return init_lr * (0.9**epoch)
 
     change_lr = LearningRateScheduler(scheduler)
 
     callbacks.append(change_lr)
 
-    model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
-                                             monitor='val_loss',
-                                             save_best_only=True,
-                                             verbose=0,
-                                             s3resource=s3,
-                                             s3filename=network.name + '.h5')
+    # model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '_' + time.strftime("%x") + '.h5',
+    #                                          monitor='val_loss',
+    #                                          save_best_only=True,
+    #                                          verbose=0,
+    #                                          s3resource=s3,
+    #                                          s3filename=network.name + '_' + time.strftime("%x") + '.h5')
 
+    model_checkpoint_cb = ModelCheckpoint(filepath=network.name + '.{epoch:02d}-{val_loss:.2f}.hdf5', monitor='val_loss')
     callbacks.append(model_checkpoint_cb)
+
+    loss_history = LossHistory(filepath=network.name + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv",
+                                s3resource=s3, s3filename=network.name + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv")
+    callbacks.append(loss_history)
 
     history = network.model.fit_generator(train_generator,
                                           samples_per_epoch=nb_train_samples,
