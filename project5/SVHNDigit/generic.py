@@ -285,8 +285,8 @@ def train_model_from_images(network, model_train_params,
     model_checkpoint_cb = ModelCheckpoint(filepath=network.name + '.{epoch:02d}-{val_loss:.2f}.hdf5', monitor='val_loss')
     callbacks.append(model_checkpoint_cb)
 
-    loss_history = LossHistory(filepath=network.name + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv",
-                                s3resource=s3, s3filename=network.name + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv")
+    loss_history = LossHistory(filepath=network.name + '_lr_' + str(model_train_params['lr']) + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv",
+                                s3resource=s3, s3filename=network.name + '_lr_' + str(model_train_params['lr']) + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv")
     callbacks.append(loss_history)
 
     history = network.model.fit_generator(train_generator,

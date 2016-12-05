@@ -40,7 +40,7 @@ momentum = 0.9
 
 model_define_params = {'reg_factor': reg_factor,
                        'init': 'glorot_normal',
-                       'use_dropout': True,
+                       'use_dropout': False,
                        'dropout_param': dropout_param,
                        'use_batchnorm': True}
 
@@ -51,7 +51,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'decay': decay,
                       'nesterov': True,
                       'metrics': ['accuracy'],
-                      'batch_size': 128,
+                      'batch_size': 32,
                       'nb_epochs': 3,
                       'nb_train_samples': 99712 * 6,
                       #'nb_train_samples': 320,
@@ -66,12 +66,12 @@ cnn = VGGNetMod_1(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params,
                                   train_data_dir, validation_data_dir,
-                                  verbose=1, save_to_s3=False, tb_logs=False,
+                                  verbose=1, save_to_s3=True, tb_logs=False,
                                   csv_log=True, early_stopping=True)
 
 data_store = (model_define_params, model_train_params, history.history, history.params)
 
-data_store_file_name = cnn.name + '_log_' + time.strftime("%x").replace("/", "_") + '.p'
+data_store_file_name = cnn.name + '_log_lr_' + str(lr) + '_' + time.strftime("%x").replace("/", "_") + '.p'
 data_store_file = open(data_store_file_name, 'a+')
 pickle.dump(data_store, data_store_file)
 data_store_file.close()
