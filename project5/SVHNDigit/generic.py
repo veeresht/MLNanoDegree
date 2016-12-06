@@ -221,7 +221,7 @@ def train_model_from_images(network, model_train_params,
     image_set = np.empty([0, 3, img_width, img_height])
     label_set = np.empty([0, 10])
     for i in range(total_samples/batch_size):
-        (X, y) = train_gen.next()
+        (X, y) = train_generator.next()
         image_set = np.concatenate((image_set, X), axis=0)
         label_set = np.concatenate((label_set, y), axis=0)
 
