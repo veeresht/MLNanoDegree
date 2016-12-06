@@ -207,14 +207,37 @@ def train_model_from_images(network, model_train_params,
     nb_train_samples = model_train_params['nb_train_samples']
     nb_validation_samples = model_train_params['nb_validation_samples']
 
+    train_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    train_generator = \
+        train_datagen.flow_from_directory(train_data_dir,
+                                          target_size=(img_width, img_height),
+                                          batch_size=100,
+                                          classes=['0', '1', '2', '3', '4',
+                                                   '5', '6', '7', '8', '9'],
+                                          class_mode='categorical', seed=131)
+
+    total_samples = 30000
+    image_set = np.empty([0, 3, img_width, img_height])
+    label_set = np.empty([0, 10])
+    for i in range(total_samples/batch_size):
+        (X, y) = train_gen.next()
+        image_set = np.concatenate((image_set, X), axis=0)
+        label_set = np.concatenate((label_set, y), axis=0)
+
+
     # this is the augmentation configuration we will use for training
     train_datagen = ImageDataGenerator(rescale=1.0/255,
-                                       samplewise_center=True)
+                                       samplewise_center=False,
+                                       featurewise_center=True)
+    train_datagen.fit(image_set)
 
     # this is the augmentation configuration we will use for testing:
     # only rescaling
     val_datagen = ImageDataGenerator(rescale=1.0/255,
-                                      samplewise_center=True)
+                                     samplewise_center=False,
+                                     featurewise_center=True)
+    val_datagen.fit(image_set)
 
     train_generator = \
         train_datagen.flow_from_directory(train_data_dir,
