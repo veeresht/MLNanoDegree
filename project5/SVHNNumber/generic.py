@@ -3,14 +3,59 @@ import cPickle as pickle
 import warnings
 import boto3
 import socket
+import time
 
+import keras.backend as K
 from keras.optimizers import SGD, Adam
-from keras.callbacks import TensorBoard, EarlyStopping, Callback
+from keras.callbacks import TensorBoard, EarlyStopping, Callback, CSVLogger, ModelCheckpoint
 from keras.callbacks import LearningRateScheduler
 
 from SVHNNumber.imagedatagen import SVHNImageDataGenerator
-from SVHNNumber.models.cnn import CNN_B
+from SVHNNumber.models.cnn import VGGNetMod_1
 
+# def seqdet_metric(y_true, y_pred):
+
+#     print y_true
+#     print y_pred
+
+#     length_log_probs = K.log(y_pred[0])
+#     digit_log_probs = K.log(K.stack(y_pred[1:], axis=0))
+
+
+#     probs = y_pred.eval()
+#     y = y_true.eval()
+#     length_log_probs = np.log(probs[0])
+#     digit_log_probs = np.log(np.dstack(probs[1:]))
+#     preds = np.argmax(digit_log_probs, axis=1)
+#     max_log_probs = np.max(digit_log_probs, axis=1)
+#     max_log_probs = np.hstack((np.zeros([batch_size, 1]),
+#                                max_log_probs, np.zeros([batch_size, 1])))
+#     sum_max_log_probs = np.cumsum(max_log_probs, axis=1)
+#     seq_log_probs = sum_max_log_probs + length_log_probs
+#     seq_length_preds = np.argmax(seq_log_probs, axis=1)
+#     for idx in range(probs[0].shape[0]):
+#         preds[idx, seq_length_preds[idx]:] = 0
+#     length_comp = seq_length_preds == np.argmax(y[0], axis=1)
+#     digit1_comp = preds[:, 0] == np.argmax(y[1], axis=1)
+#     digit2_comp = preds[:, 1] == np.argmax(y[2], axis=1)
+#     digit3_comp = preds[:, 2] == np.argmax(y[3], axis=1)
+#     digit4_comp = preds[:, 3] == np.argmax(y[4], axis=1)
+#     digit5_comp = preds[:, 4] == np.argmax(y[5], axis=1)
+#     comp_stack = np.vstack((length_comp, digit1_comp, digit2_comp,
+#                             digit3_comp, digit4_comp, digit5_comp)).T
+#     comp = np.all(comp_stack, axis=1)
+#     num_correct = np.sum(comp)
+#     total_num_correct += num_correct
+#     length_num_correct += np.sum(length_comp)
+#     digit1_num_correct += np.sum(digit1_comp)
+#     digit2_num_correct += np.sum(digit2_comp)
+#     digit3_num_correct += np.sum(digit3_comp)
+#     digit4_num_correct += np.sum(digit4_comp)
+#     digit5_num_correct += np.sum(digit5_comp)
+
+#     acc = total_num_correct / float(probs[0].shape[0])
+
+#     return K.convert_to_tensor(acc.eval())
 
 class ModelCheckpoint2S3(Callback):
 
@@ -78,10 +123,46 @@ class ModelCheckpoint2S3(Callback):
             self.model.save_weights(filepath, overwrite=True)
 
 
-def train_model_from_images(network, model_train_params,
+class LossHistory(Callback):
+
+    def __init__(self, filepath, s3resource=None,
+                 s3filename=None):
+        self.filepath = filepath
+        self.s3resource = s3resource
+        self.s3filename = s3filename
+
+    def on_train_begin(self, logs={}):
+        self.losses = []
+        self.val_losses = []
+        self.length_acc = []
+        self.val_length_acc = []
+
+    def on_batch_end(self, batch, logs={}):
+        self.losses.append(logs.get('loss'))
+        self.val_losses.append(logs.get('val_loss'))
+        self.length_acc.append(logs.get('length_acc'))
+        self.val_length_acc.append(logs.get('val_length_acc'))
+
+    def on_epoch_end(self, epoch, logs={}):
+        np.savetxt(self.filepath, (self.losses, self.val_losses, self.length_acc, self.val_length_acc), delimiter=",")
+        if self.s3resource is not None:
+            # Upload to AWS S3 bucket
+            bucket = self.s3resource.Bucket('mlnd')
+            bucket.upload_file(self.s3filename, self.filepath)
+
+    def on_train_end(self, logs={}):
+        np.savetxt(self.filepath, (self.losses, self.val_losses, self.length_acc, self.val_length_acc), delimiter=",")
+        if self.s3resource is not None:
+            # Upload to AWS S3 bucket
+            bucket = self.s3resource.Bucket('mlnd')
+            bucket.upload_file(self.s3filename, self.filepath)
+
+
+def train_model_from_images(network, model_train_params, model_define_params,
                             train_data_dir, train_metadata_file,
                             validation_data_dir, validation_metadata_file,
-                            verbose=0, tb_logs=False, early_stopping=False,
+                            verbose=0, tb_logs=False, csv_log=False,
+                            early_stopping=False,
                             save_to_s3=False):
 
     # dimensions of our images.
@@ -94,11 +175,34 @@ def train_model_from_images(network, model_train_params,
     nb_train_samples = model_train_params['nb_train_samples']
     nb_validation_samples = model_train_params['nb_validation_samples']
 
-    train_datagen = SVHNImageDataGenerator(rescale=1.0/255,
-                                           samplewise_center=True)
+    train_datagen = SVHNImageDataGenerator(rescale=1.0/255)
 
-    test_datagen = SVHNImageDataGenerator(rescale=1.0/255,
-                                          samplewise_center=True)
+    train_generator = \
+        train_datagen.flow_from_directory(train_data_dir, train_metadata_file,
+                                          target_size=(img_width, img_height),
+                                          batch_size=100, seed=131)
+
+    print "Fetching images for feature wise centering ..."
+    total_samples = 5000
+    image_set = np.empty([0, 3, img_width, img_height])
+    #label_set = np.empty([0, 10])
+    for i in range(total_samples/batch_size):
+        (X, y) = train_generator.next()
+        image_set = np.concatenate((image_set, X['input_image']), axis=0)
+        #label_set = np.concatenate((label_set, y), axis=0)
+
+    print "Fitting image set for feature wise centering ..."
+    train_datagen = SVHNImageDataGenerator(rescale=1.0/255,
+                                           samplewise_center=False,
+                                           featurewise_center=True)
+
+    train_datagen.fit(image_set)
+
+    val_datagen = SVHNImageDataGenerator(rescale=1.0/255,
+                                          samplewise_center=False,
+                                          featurewise_center=True,)
+
+    val_datagen.fit(image_set)
 
     train_generator = \
         train_datagen.flow_from_directory(train_data_dir, train_metadata_file,
@@ -106,7 +210,7 @@ def train_model_from_images(network, model_train_params,
                                           batch_size=batch_size)
 
     validation_generator = \
-        test_datagen.flow_from_directory(validation_data_dir, validation_metadata_file,
+        val_datagen.flow_from_directory(validation_data_dir, validation_metadata_file,
                                          target_size=(img_width, img_height),
                                          batch_size=batch_size)
 
@@ -133,9 +237,16 @@ def train_model_from_images(network, model_train_params,
         callbacks = [tb_callback]
 
     if early_stopping:
-        early_stopping = EarlyStopping(monitor='val_loss',
-                                       patience=3, verbose=0, mode='auto')
+        early_stopping = EarlyStopping(monitor='val_acc',
+                                        patience=2, min_delta=0.005,
+                                        verbose=0, mode='auto')
         callbacks.append(early_stopping)
+
+    if csv_log:
+        csv_filename = (network.name + '_lr_' + str(model_train_params['lr']) +
+                       '_l2weightdecay_' + str(model_train_params['decay']) + '.csv')
+        csv_logger_callback = CSVLogger(filename=csv_filename, append=True)
+        callbacks.append(csv_logger_callback)
 
     if save_to_s3:
         s3 = boto3.resource('s3')
@@ -144,18 +255,26 @@ def train_model_from_images(network, model_train_params,
 
     def scheduler(epoch):
         init_lr = model_train_params['lr']
-        return init_lr * (0.8**epoch)
+        return init_lr * (0.9**epoch)
 
     change_lr = LearningRateScheduler(scheduler)
     callbacks.append(change_lr)
 
-    model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
-                                             monitor='val_loss',
-                                             save_best_only=True,
-                                             verbose=0,
-                                             s3resource=s3,
-                                             s3filename=network.name + '.h5')
+    # model_checkpoint_cb = ModelCheckpoint2S3(filepath=network.name + '.h5',
+    #                                          monitor='val_loss',
+    #                                          save_best_only=True,
+    #                                          verbose=0,
+    #                                          s3resource=s3,
+    #                                          s3filename=network.name + '.h5')
+    # callbacks.append(model_checkpoint_cb)
+
+    model_checkpoint_cb = ModelCheckpoint(filepath=network.name + '.{epoch:02d}-{val_loss:.2f}.hdf5', monitor='val_loss')
     callbacks.append(model_checkpoint_cb)
+
+    filename = network.name + '_lr_' + str(model_train_params['lr']) + '_l2weightdecay_' + str(model_define_params['reg_factor']) + '_' + time.strftime("%x").replace("/", "_") + "_trainloss.csv"
+    loss_history = LossHistory(filepath=filename,
+                                s3resource=s3, s3filename=filename)
+    callbacks.append(loss_history)
 
     history = network.model.fit_generator(train_generator,
                                           samples_per_epoch=nb_train_samples,

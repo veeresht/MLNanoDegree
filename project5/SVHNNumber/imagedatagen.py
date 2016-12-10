@@ -34,7 +34,6 @@ def random_rotation(x, rg, row_index=1, col_index=2, channel_index=0,
     x = apply_transform(x, transform_matrix, channel_index, fill_mode, cval)
     return x
 
-
 def random_shift(x, wrg, hrg, row_index=1, col_index=2, channel_index=0,
                  fill_mode='nearest', cval=0.):
     h, w = x.shape[row_index], x.shape[col_index]
@@ -65,8 +64,8 @@ def random_shear(x, intensity, row_index=1, col_index=2, channel_index=0,
 def random_zoom(x, zoom_range, row_index=1, col_index=2, channel_index=0,
                 fill_mode='nearest', cval=0.):
     if len(zoom_range) != 2:
-        raise Exception('zoom_range should be a tuple or list of two floats. '
-                        'Received arg: ', zoom_range)
+        raise ValueError('zoom_range should be a tuple or list of two floats. '
+                         'Received arg: ', zoom_range)
 
     if zoom_range[0] == 1 and zoom_range[1] == 1:
         zx, zy = 1, 1
@@ -123,14 +122,28 @@ def flip_axis(x, axis):
     x = x.swapaxes(0, axis)
     return x
 
-
-def array_to_img(x, dim_ordering=K.image_dim_ordering(), scale=True):
+def array_to_img(x, dim_ordering='default', scale=True):
     from PIL import Image
+    x = np.asarray(x)
+    if x.ndim != 3:
+        raise ValueError('Expected image array to have rank 3 (single image). '
+                         'Got array with shape:', x.shape)
+
+    if dim_ordering == 'default':
+        dim_ordering = K.image_dim_ordering()
+    if dim_ordering not in {'th', 'tf'}:
+        raise ValueError('Invalid dim_ordering:', dim_ordering)
+
+    # Original Numpy array x has format (height, width, channel)
+    # or (channel, height, width)
+    # but target PIL image has format (width, height, channel)
     if dim_ordering == 'th':
         x = x.transpose(1, 2, 0)
     if scale:
         x += max(-np.min(x), 0)
-        x /= np.max(x)
+        x_max = np.max(x)
+        if x_max != 0:
+            x /= x_max
         x *= 255
     if x.shape[2] == 3:
         # RGB
@@ -139,13 +152,17 @@ def array_to_img(x, dim_ordering=K.image_dim_ordering(), scale=True):
         # grayscale
         return Image.fromarray(x[:, :, 0].astype('uint8'), 'L')
     else:
-        raise Exception('Unsupported channel number: ', x.shape[2])
+        raise ValueError('Unsupported channel number: ', x.shape[2])
 
 
-def img_to_array(img, dim_ordering=K.image_dim_ordering()):
-    if dim_ordering not in ['th', 'tf']:
-        raise Exception('Unknown dim_ordering: ', dim_ordering)
-    # image has dim_ordering (height, width, channel)
+def img_to_array(img, dim_ordering='default'):
+    if dim_ordering == 'default':
+        dim_ordering = K.image_dim_ordering()
+    if dim_ordering not in {'th', 'tf'}:
+        raise ValueError('Unknown dim_ordering: ', dim_ordering)
+    # Numpy array x has format (height, width, channel)
+    # or (channel, height, width)
+    # but original PIL image has format (width, height, channel)
     x = np.asarray(img, dtype='float32')
     if len(x.shape) == 3:
         if dim_ordering == 'th':
@@ -156,11 +173,18 @@ def img_to_array(img, dim_ordering=K.image_dim_ordering()):
         else:
             x = x.reshape((x.shape[0], x.shape[1], 1))
     else:
-        raise Exception('Unsupported image shape: ', x.shape)
+        raise ValueError('Unsupported image shape: ', x.shape)
     return x
 
 
 def load_img(path, grayscale=False, target_size=None):
+    '''Load an image into PIL format.
+    # Arguments
+        path: path to image file
+        grayscale: boolean
+        target_size: None (default to original size)
+            or (img_height, img_width)
+    '''
     from PIL import Image
     img = Image.open(path)
     if grayscale:
@@ -173,7 +197,7 @@ def load_img(path, grayscale=False, target_size=None):
 
 
 def list_pictures(directory, ext='jpg|jpeg|bmp|png'):
-    return [os.path.join(directory, f) for f in os.listdir(directory)
+    return [os.path.join(directory, f) for f in sorted(os.listdir(directory))
             if os.path.isfile(os.path.join(directory, f)) and re.match('([\w]+\.(?:' + ext + '))', f)]
 
 
@@ -281,24 +305,36 @@ class SVHNImageDataGenerator(object):
         # x is a single image, so it doesn't have image number at index 0
         img_channel_index = self.channel_index - 1
         if self.samplewise_center:
-            # Correcting the samplewise center
-            x[0, :, :] = x[0, :, :] - np.mean(x[0, :, :])
-            x[1, :, :] = x[1, :, :] - np.mean(x[1, :, :])
-            x[2, :, :] = x[2, :, :] - np.mean(x[2, :, :])
-            # x -= np.mean(x, axis=img_channel_index, keepdims=True)
+            x -= np.mean(x, axis=img_channel_index, keepdims=True)
         if self.samplewise_std_normalization:
             x /= (np.std(x, axis=img_channel_index, keepdims=True) + 1e-7)
 
         if self.featurewise_center:
-            x -= self.mean
+            if self.mean is not None:
+                x -= self.mean
+            else:
+                warnings.warn('This ImageDataGenerator specifies '
+                              '`featurewise_center`, but it hasn\'t'
+                              'been fit on any training data. Fit it '
+                              'first by calling `.fit(numpy_data)`.')
         if self.featurewise_std_normalization:
-            x /= (self.std + 1e-7)
-
+            if self.std is not None:
+                x /= (self.std + 1e-7)
+            else:
+                warnings.warn('This ImageDataGenerator specifies '
+                              '`featurewise_std_normalization`, but it hasn\'t'
+                              'been fit on any training data. Fit it '
+                              'first by calling `.fit(numpy_data)`.')
         if self.zca_whitening:
-            flatx = np.reshape(x, (x.size))
-            whitex = np.dot(flatx, self.principal_components)
-            x = np.reshape(whitex, (x.shape[0], x.shape[1], x.shape[2]))
-
+            if self.principal_components is not None:
+                flatx = np.reshape(x, (x.size))
+                whitex = np.dot(flatx, self.principal_components)
+                x = np.reshape(whitex, (x.shape[0], x.shape[1], x.shape[2]))
+            else:
+                warnings.warn('This ImageDataGenerator specifies '
+                              '`zca_whitening`, but it hasn\'t'
+                              'been fit on any training data. Fit it '
+                              'first by calling `.fit(numpy_data)`.')
         return x
 
     def random_transform(self, x):
@@ -373,12 +409,31 @@ class SVHNImageDataGenerator(object):
         '''Required for featurewise_center, featurewise_std_normalization
         and zca_whitening.
         # Arguments
-            X: Numpy array, the data to fit on.
-            augment: whether to fit on randomly augmented samples
-            rounds: if `augment`,
+            X: Numpy array, the data to fit on. Should have rank 4.
+                In case of grayscale data,
+                the channels axis should have value 1, and in case
+                of RGB data, it should have value 3.
+            augment: Whether to fit on randomly augmented samples
+            rounds: If `augment`,
                 how many augmentation passes to do over the data
             seed: random seed.
         '''
+        X = np.asarray(X)
+        if X.ndim != 4:
+            raise ValueError('Input to `.fit()` should have rank 4. '
+                             'Got array with shape: ' + str(X.shape))
+        if X.shape[self.channel_index] not in {1, 3}:
+            raise ValueError(
+                'Expected input to be images (as Numpy array) '
+                'following the dimension ordering convention "' + self.dim_ordering + '" '
+                '(channels on axis ' + str(self.channel_index) + '), i.e. expected '
+                'either 1 or 3 channels on axis ' + str(self.channel_index) + '. '
+                'However, it was passed an array with shape ' + str(X.shape) +
+                ' (' + str(X.shape[self.channel_index]) + ' channels).')
+
+        if seed is not None:
+            np.random.seed(seed)
+
         X = np.copy(X)
         if augment:
             aX = np.zeros(tuple([rounds * X.shape[0]] + list(X.shape)[1:]))
@@ -388,16 +443,22 @@ class SVHNImageDataGenerator(object):
             X = aX
 
         if self.featurewise_center:
-            self.mean = np.mean(X, axis=0)
+            self.mean = np.mean(X, axis=(0, self.row_index, self.col_index))
+            broadcast_shape = [1, 1, 1]
+            broadcast_shape[self.channel_index - 1] = X.shape[self.channel_index]
+            self.mean = np.reshape(self.mean, broadcast_shape)
             X -= self.mean
 
         if self.featurewise_std_normalization:
-            self.std = np.std(X, axis=0)
-            X /= (self.std + 1e-7)
+            self.std = np.std(X, axis=(0, self.row_index, self.col_index))
+            broadcast_shape = [1, 1, 1]
+            broadcast_shape[self.channel_index - 1] = X.shape[self.channel_index]
+            self.std = np.reshape(self.std, broadcast_shape)
+            X /= (self.std + K.epsilon())
 
         if self.zca_whitening:
             flatX = np.reshape(X, (X.shape[0], X.shape[1] * X.shape[2] * X.shape[3]))
-            sigma = np.dot(flatX.T, flatX) / flatX.shape[1]
+            sigma = np.dot(flatX.T, flatX) / flatX.shape[0]
             U, S, V = linalg.svd(sigma)
             self.principal_components = np.dot(np.dot(U, np.diag(1. / np.sqrt(S + 10e-7))), U.T)
 
@@ -508,9 +569,12 @@ class SVHNDirectoryIterator(Iterator):
         # the test data contains the metadata (labels, etc.) in a different order
         # to the lexicographical file ordering system unlike for the train and
         # validation data/folders.
+        # print(self.directory.split('/')[-1])
         if self.directory.split('/')[-1] == "test":
             sort_nicely(self.filenames)
 
+        #print(shuffle)
+        #print(self.filenames)
         # load the metadata containing class information
         data_list = pkl.load(open(self.metadata_file, 'rb'))
 
@@ -526,12 +590,14 @@ class SVHNDirectoryIterator(Iterator):
     def next(self):
         with self.lock:
             index_array, current_index, current_batch_size = next(self.index_generator)
+            # print(index_array)
         # The transformation of images is not under thread lock so it can be done in parallel
         batch_x = np.zeros((current_batch_size,) + self.image_shape)
         grayscale = self.color_mode == 'grayscale'
         # build batch of image data
         for i, j in enumerate(index_array):
             fname = self.filenames[j]
+            #print(fname)
             img = load_img(os.path.join(self.directory, fname),
                            grayscale=grayscale,
                            target_size=self.target_size)
