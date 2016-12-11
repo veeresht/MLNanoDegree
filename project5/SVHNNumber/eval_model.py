@@ -1,4 +1,3 @@
-
 # Append to PYTHONPATH
 import os
 import sys
@@ -8,7 +7,7 @@ import time
 import boto3
 import cPickle as pickle
 
-from SVHNNumber.generic import train_model_from_images
+from SVHNNumber.generic import train_model_from_images, eval_model_from_images
 from SVHNNumber.models.cnn import LeNet5Mod, DigitConvNet, VGGNetMod_1
 
 # Load SVHNDigit data
@@ -17,10 +16,12 @@ train_data_dir = 'data/final/train'
 train_metadata_file = 'data/final/train/train.p'
 validation_data_dir = 'data/final/validation'
 validation_metadata_file = 'data/final/validation/validation.p'
+test_data_dir = 'data/final/test'
+test_metadata_file = 'data/final/test/test.p'
 
 # Hyperparameters selected by tuning (CNN_B)
-lr = float(sys.argv[1])
-reg_factor = float(sys.argv[2])
+lr = 0.005
+reg_factor = 1e-5
 
 # Hyperparameters selected by tuning (LeNet5Mod)
 # lr = 0.01
@@ -52,7 +53,8 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'nb_epochs': 3,
                       #'nb_train_samples': 1024,
                       'nb_train_samples': 225664,
-                      'nb_validation_samples': 10000}
+                      'nb_validation_samples': 10000,
+                      'nb_test_samples': 13068}
                       #'nb_validation_samples': 1024}
 
 
@@ -61,22 +63,19 @@ cnn = VGGNetMod_1(model_define_params, input_dim)
 #cnn = CNN_B(model_define_params, input_dim)
 #cnn = LeNet5Mod(model_define_params, input_dim)
 # cnn = DigitConvNet(model_define_params, input_dim)
-cnn.define(verbose=1)
-history = train_model_from_images(cnn, model_train_params, model_define_params,
-                                  train_data_dir, train_metadata_file,
-                                  validation_data_dir, validation_metadata_file,
-                                  verbose=1, save_to_s3=False, early_stopping=False,
-                                  csv_log=True)
+cnn.define(verbose=0)
+cnn.model.load_weights('trained_model_info/VGGNetMod_1/1/VGGNetMod_1.02-0.77.hdf5')
 
-data_store = (model_define_params, model_train_params, history.history, history.params)
+results = eval_model_from_images(cnn, model_train_params, train_data_dir, train_metadata_file,
+                                 test_data_dir, test_metadata_file,
+                                 verbose=0)
 
-data_store_file_name = cnn.name + '_log_lr_' + str(lr) + '_l2weightdecay_' + str(reg_factor) + '_' + time.strftime("%x").replace("/", "_") + '.p'
-data_store_file = open(data_store_file_name, 'a+')
-pickle.dump(data_store, data_store_file)
-data_store_file.close()
+print "Accuracy(%): ", results[0]/float(results[-1])
+print "Length Accuracy(%): ", results[1]/float(results[-1])
+print "Digit-1 Accuracy(%): ", results[2]/float(results[-1])
+print "Digit-2 Accuracy(%): ", results[3]/float(results[-1])
+print "Digit-3 Accuracy(%): ", results[4]/float(results[-1])
+print "Digit-4 Accuracy(%): ", results[5]/float(results[-1])
+print "Digit-5 Accuracy(%): ", results[6]/float(results[-1])
 
-s3 = boto3.resource('s3')
-if s3 is not None:
-    # Upload to AWS S3 bucket
-    bucket = s3.Bucket('mlnd')
-    bucket.upload_file(data_store_file_name, data_store_file_name)
+

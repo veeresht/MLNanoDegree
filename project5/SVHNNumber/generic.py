@@ -133,25 +133,21 @@ class LossHistory(Callback):
 
     def on_train_begin(self, logs={}):
         self.losses = []
-        self.val_losses = []
         self.length_acc = []
-        self.val_length_acc = []
 
     def on_batch_end(self, batch, logs={}):
         self.losses.append(logs.get('loss'))
-        self.val_losses.append(logs.get('val_loss'))
         self.length_acc.append(logs.get('length_acc'))
-        self.val_length_acc.append(logs.get('val_length_acc'))
 
     def on_epoch_end(self, epoch, logs={}):
-        np.savetxt(self.filepath, (self.losses, self.val_losses, self.length_acc, self.val_length_acc), delimiter=",")
+        np.savetxt(self.filepath, (self.losses, self.length_acc), delimiter=",")
         if self.s3resource is not None:
             # Upload to AWS S3 bucket
             bucket = self.s3resource.Bucket('mlnd')
             bucket.upload_file(self.s3filename, self.filepath)
 
     def on_train_end(self, logs={}):
-        np.savetxt(self.filepath, (self.losses, self.val_losses, self.length_acc, self.val_length_acc), delimiter=",")
+        np.savetxt(self.filepath, (self.losses, self.length_acc), delimiter=",")
         if self.s3resource is not None:
             # Upload to AWS S3 bucket
             bucket = self.s3resource.Bucket('mlnd')
@@ -287,7 +283,8 @@ def train_model_from_images(network, model_train_params, model_define_params,
     return history
 
 def eval_model_from_images(network, model_train_params,
-                           data_dir, metadata_file, verbose=0):
+                           train_data_dir, train_metadata_file,
+                           test_data_dir, test_metadata_file, verbose=0):
 
     # dimensions of our images.
     img_width, img_height = network.input_dim[1:]
@@ -296,11 +293,32 @@ def eval_model_from_images(network, model_train_params,
     batch_size = model_train_params['batch_size']
     nb_test_samples = model_train_params['nb_test_samples']
 
+    train_datagen = SVHNImageDataGenerator(rescale=1.0/255)
+
+    train_generator = \
+        train_datagen.flow_from_directory(train_data_dir, train_metadata_file,
+                                          target_size=(img_width, img_height),
+                                          batch_size=100, seed=131)
+
+    print "Fetching images for feature wise centering ..."
+    total_samples = 5000
+    image_set = np.empty([0, 3, img_width, img_height])
+    #label_set = np.empty([0, 10])
+    for i in range(total_samples/batch_size):
+        (X, y) = train_generator.next()
+        image_set = np.concatenate((image_set, X['input_image']), axis=0)
+        #label_set = np.concatenate((label_set, y), axis=0)
+
+    print "Fitting image set for feature wise centering ..."
+
     eval_datagen = SVHNImageDataGenerator(rescale=1.0/255,
-                                          samplewise_center=True)
+                                          samplewise_center=False,
+                                          featurewise_center=True)
+
+    eval_datagen.fit(image_set)
 
     eval_generator = \
-        eval_datagen.flow_from_directory(data_dir, metadata_file,
+        eval_datagen.flow_from_directory(test_data_dir, test_metadata_file,
                                          target_size=(img_width, img_height),
                                          batch_size=batch_size, shuffle=False)
 
