@@ -535,7 +535,7 @@ class LeNet5Mod(object):
         if self.use_batchnorm:
             conv31 = BatchNormalization(mode=0, axis=1)(conv31)
         conv31 = Activation('relu')(conv31)
-        conv31 = MaxPooling2D(pool_size=(2, 2), strides=(1, 1),
+        conv31 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
                               border_mode='same')(conv31)
 
         conv_features = Flatten()(conv31)

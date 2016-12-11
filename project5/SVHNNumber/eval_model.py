@@ -49,7 +49,7 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'decay': decay,
                       'nesterov': True,
                       'metrics': ['accuracy'],
-                      'batch_size': 32,
+                      'batch_size': 36,
                       'nb_epochs': 3,
                       #'nb_train_samples': 1024,
                       'nb_train_samples': 225664,
@@ -70,12 +70,12 @@ results = eval_model_from_images(cnn, model_train_params, train_data_dir, train_
                                  test_data_dir, test_metadata_file,
                                  verbose=0)
 
-print "Accuracy(%): ", results[0]/float(results[-1])
-print "Length Accuracy(%): ", results[1]/float(results[-1])
-print "Digit-1 Accuracy(%): ", results[2]/float(results[-1])
-print "Digit-2 Accuracy(%): ", results[3]/float(results[-1])
-print "Digit-3 Accuracy(%): ", results[4]/float(results[-1])
-print "Digit-4 Accuracy(%): ", results[5]/float(results[-1])
-print "Digit-5 Accuracy(%): ", results[6]/float(results[-1])
+print "Accuracy(%): ", results['total_num_correct']/float(results['total_num_samples'])
+print "Length Accuracy(%): ", results['length_num_correct']/float(results['length_num_samples'])
+print "Digit-1 Accuracy(%): ", results['digit1_num_correct']/float(results['digit1_num_samples'])
+print "Digit-2 Accuracy(%): ", results['digit2_num_correct']/float(results['digit2_num_samples'])
+print "Digit-3 Accuracy(%): ", results['digit3_num_correct']/float(results['digit3_num_samples'])
+print "Digit-4 Accuracy(%): ", results['digit4_num_correct']/float(results['digit4_num_samples'])
+print "Digit-5 Accuracy(%): ", results['digit5_num_correct']/float(results['digit5_num_samples'])
 
 

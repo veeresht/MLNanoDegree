@@ -340,6 +340,18 @@ def eval_model_from_images(network, model_train_params,
                           optimizer=optimizer)
 
     total_num_correct = 0
+    length_num_correct = 0
+    digit1_num_correct = 0
+    digit2_num_correct = 0
+    digit3_num_correct = 0
+    digit4_num_correct = 0
+    digit5_num_correct = 0
+
+    digit1_num_samples = 0
+    digit2_num_samples = 0
+    digit3_num_samples = 0
+    digit4_num_samples = 0
+    digit5_num_samples = 0
     batch_count = 0
 
     for (X, y) in eval_generator:
@@ -361,16 +373,59 @@ def eval_model_from_images(network, model_train_params,
         digit3_comp = preds[:, 2] == np.argmax(y['digit3'], axis=1)
         digit4_comp = preds[:, 3] == np.argmax(y['digit4'], axis=1)
         digit5_comp = preds[:, 4] == np.argmax(y['digit5'], axis=1)
+
         comp_stack = np.vstack((length_comp, digit1_comp, digit2_comp,
                                 digit3_comp, digit4_comp, digit5_comp)).T
         comp = np.all(comp_stack, axis=1)
         num_correct = np.sum(comp)
         total_num_correct += num_correct
+        length_num_correct += np.sum(length_comp)
+
+        valid_idxs = np.sum(y['digit1'], axis=1) == 1
+        digit1_comp = preds[:, 0][valid_idxs] == np.argmax(y['digit1'], axis=1)[valid_idxs]
+        digit1_num_correct += np.sum(digit1_comp)
+        digit1_num_samples += np.sum(valid_idxs)
+
+        valid_idxs = np.sum(y['digit2'], axis=1) == 1
+        digit2_comp = preds[:, 1][valid_idxs] == np.argmax(y['digit2'], axis=1)[valid_idxs]
+        digit2_num_correct += np.sum(digit2_comp)
+        digit2_num_samples += np.sum(valid_idxs)
+
+        valid_idxs = np.sum(y['digit3'], axis=1) == 1
+        digit3_comp = preds[:, 2][valid_idxs] == np.argmax(y['digit3'], axis=1)[valid_idxs]
+        digit3_num_correct += np.sum(digit3_comp)
+        digit3_num_samples += np.sum(valid_idxs)
+
+        valid_idxs = np.sum(y['digit4'], axis=1) == 1
+        digit4_comp = preds[:, 3][valid_idxs] == np.argmax(y['digit4'], axis=1)[valid_idxs]
+        digit4_num_correct += np.sum(digit4_comp)
+        digit4_num_samples +=np.sum(valid_idxs)
+
+        valid_idxs = np.sum(y['digit5'], axis=1) == 1
+        digit5_comp = preds[:, 4][valid_idxs] == np.argmax(y['digit5'], axis=1)[valid_idxs]
+        digit5_num_correct += np.sum(digit5_comp)
+        digit5_num_samples += np.sum(valid_idxs)
+
         batch_count += 1
         if batch_count * batch_size >= nb_test_samples:
             break
 
-    return total_num_correct, batch_count * batch_size
+    results_dict = {'total_num_correct': total_num_correct,
+                    'total_num_samples': batch_count * batch_size,
+                    'length_num_correct': length_num_correct,
+                    'length_num_samples': batch_count * batch_size,
+                    'digit1_num_correct': digit1_num_correct,
+                    'digit1_num_samples': digit1_num_samples,
+                    'digit2_num_correct': digit2_num_correct,
+                    'digit2_num_samples': digit2_num_samples,
+                    'digit3_num_correct': digit3_num_correct,
+                    'digit3_num_samples': digit3_num_samples,
+                    'digit4_num_correct': digit4_num_correct,
+                    'digit4_num_samples': digit4_num_samples,
+                    'digit5_num_correct': digit5_num_correct,
+                    'digit5_num_samples': digit5_num_samples}
+
+    return results_dict
 
 
 def train_model(network, model_train_params,
