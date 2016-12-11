@@ -23,6 +23,24 @@ test_metadata_file = 'data/final/test/test.p'
 lr = 0.005
 reg_factor = 1e-5
 
+eval_dir_str = sys.argv[1]
+
+if eval_dir_str == 'train':
+    eval_dir = train_data_dir
+    eval_metadata_file = train_metadata_file
+    batch_size = 128
+    nb_test_samples = 225664
+elif eval_dir_str == 'val':
+    eval_dir = validation_data_dir
+    eval_metadata_file = validation_metadata_file
+    batch_size = 100
+    nb_test_samples = 10000
+elif eval_dir_str == 'test':
+    eval_dir = test_data_dir
+    eval_metadata_file = test_metadata_file
+    batch_size = 36
+    nb_test_samples = 13068
+
 # Hyperparameters selected by tuning (LeNet5Mod)
 # lr = 0.01
 # reg_factor = 2e-5
@@ -49,12 +67,13 @@ model_train_params = {'loss': 'categorical_crossentropy',
                       'decay': decay,
                       'nesterov': True,
                       'metrics': ['accuracy'],
-                      'batch_size': 36,
+                      'batch_size': batch_size,
                       'nb_epochs': 3,
                       #'nb_train_samples': 1024,
                       'nb_train_samples': 225664,
                       'nb_validation_samples': 10000,
-                      'nb_test_samples': 13068}
+                      'nb_test_samples': nb_test_samples}
+                      #'nb_test_samples': 13068}
                       #'nb_validation_samples': 1024}
 
 
@@ -67,7 +86,7 @@ cnn.define(verbose=0)
 cnn.model.load_weights('trained_model_info/VGGNetMod_1/1/VGGNetMod_1.02-0.77.hdf5')
 
 results = eval_model_from_images(cnn, model_train_params, train_data_dir, train_metadata_file,
-                                 test_data_dir, test_metadata_file,
+                                 eval_dir, eval_metadata_file,
                                  verbose=0)
 
 print "Accuracy(%): ", results['total_num_correct']/float(results['total_num_samples'])

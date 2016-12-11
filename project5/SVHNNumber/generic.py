@@ -407,6 +407,7 @@ def eval_model_from_images(network, model_train_params,
         digit5_num_samples += np.sum(valid_idxs)
 
         batch_count += 1
+        print "# of Samples Processed: ", batch_count * batch_size, "/", nb_test_samples
         if batch_count * batch_size >= nb_test_samples:
             break
 
