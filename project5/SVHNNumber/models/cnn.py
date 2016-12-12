@@ -1,6 +1,7 @@
 
 from keras.models import Model
 from keras.layers import Input, Dense, Convolution2D, BatchNormalization
+from keras.layers.local import LocallyConnected2D
 from keras.layers import MaxPooling2D, Activation, Flatten, Dropout
 from keras.regularizers import l2
 
@@ -270,6 +271,151 @@ class VGGNetMod_2(object):
         if verbose == 1:
             self.model.summary()
 
+
+class VGGNetMod_3(object):
+    """ Custom Architecture based on VGGNet """
+
+    def __init__(self, model_params, input_dim):
+
+        # Name of the model
+        self.name = 'VGGNetMod_3'
+        # Weight initialization type
+        self.init = model_params['init']
+        # Dropout parameters
+        self.use_dropout = model_params['use_dropout']
+        self.dropout_param = model_params['dropout_param']
+        # L2 regularization factor for linear weights
+        self.reg_factor = model_params['reg_factor']
+        # Use batchnorm ?
+        self.use_batchnorm = model_params['use_batchnorm']
+        # Feature dimension
+        self.input_dim = input_dim
+
+    def define(self, verbose=0):
+
+        input_image = Input(shape=self.input_dim, name='input_image')
+
+        # Conv-Relu-MaxPool Layer
+        conv11 = Convolution2D(64, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(input_image)
+        if self.use_batchnorm:
+            conv11 = BatchNormalization(mode=0, axis=1)(conv11)
+        conv11 = Activation('relu')(conv11)
+        conv11 = MaxPooling2D(pool_size=(2, 2), strides=(1, 1),
+                              border_mode='same')(conv11)
+
+        # Conv-Relu-MaxPool Layer
+        conv21 = Convolution2D(64, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(conv11)
+        if self.use_batchnorm:
+            conv21 = BatchNormalization(mode=0, axis=1)(conv21)
+        conv21 = Activation('relu')(conv21)
+        conv21 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
+                              border_mode='same')(conv21)
+
+        # Conv-Relu-MaxPool Layer
+        conv31 = Convolution2D(64, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(conv21)
+        if self.use_batchnorm:
+            conv31 = BatchNormalization(mode=0, axis=1)(conv31)
+        conv31 = Activation('relu')(conv31)
+        conv31 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
+                              border_mode='same')(conv31)
+
+        # Conv-Relu-MaxPool Layer
+        conv32 = Convolution2D(128, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(conv31)
+        if self.use_batchnorm:
+            conv32 = BatchNormalization(mode=0, axis=1)(conv32)
+        conv32 = Activation('relu')(conv32)
+        conv32 = MaxPooling2D(pool_size=(2, 2), strides=(1, 1),
+                              border_mode='same')(conv32)
+
+        # Conv-Relu-MaxPool Layer
+        # conv33 = Convolution2D(128, 1, 1, border_mode='same',
+        #                        W_regularizer=l2(self.reg_factor),
+        #                        init=self.init, subsample=(1, 1))(conv32)
+        # if self.use_batchnorm:
+        #     conv33 = BatchNormalization(mode=2, axis=1)(conv33)
+        # conv33 = Activation('relu')(conv33)
+        # conv33 = MaxPooling2D(pool_size=(2, 2))(conv33)
+
+        # Conv-Relu-MaxPool Layer
+        conv41 = Convolution2D(128, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(conv32)
+        if self.use_batchnorm:
+            conv41 = BatchNormalization(mode=0, axis=1)(conv41)
+        conv41 = Activation('relu')(conv41)
+        conv41 = MaxPooling2D(pool_size=(2, 2), strides=(1, 1),
+                              border_mode='same')(conv41)
+
+        # Conv-Relu Layer
+        conv42 = Convolution2D(256, 3, 3, border_mode='same',
+                               W_regularizer=l2(self.reg_factor),
+                               init=self.init, subsample=(1, 1))(conv41)
+        if self.use_batchnorm:
+            conv42 = BatchNormalization(mode=0, axis=1)(conv42)
+        conv42 = Activation('relu')(conv42)
+        conv42 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
+                              border_mode='same')(conv42)
+
+        # Conv-Relu-MaxPool Layer
+        # conv43 = Convolution2D(256, 1, 1, border_mode='same',
+        #                        W_regularizer=l2(self.reg_factor),
+        #                        init=self.init, subsample=(1, 1))(conv42)
+        # if self.use_batchnorm:
+        #     conv43 = BatchNormalization(mode=2, axis=1)(conv43)
+        # conv43 = Activation('relu')(conv43)
+        # conv43 = MaxPooling2D(pool_size=(2, 2))(conv43)
+
+        lc1 = LocallyConnected2D(128, 3, 3, border_mode='valid',
+                                 W_regularizer=l2(self.reg_factor),
+                                 init=self.init, subsample=(1, 1))(conv42)
+        if self.use_batchnorm:
+            lc1 = BatchNormalization(mode=0, axis=1)(lc1)
+        lc1 = Activation('relu')(lc1)
+
+        conv_features = Flatten()(lc1)
+
+        # Affine-Relu-[Dropout] Layer
+        # dense1 = Dense(1024,
+        #                W_regularizer=l2(self.reg_factor),
+        #                init=self.init)(conv_features)
+        # if self.use_batchnorm:
+        #     dense1 = BatchNormalization(mode=1)(dense1)
+        # dense1 = Activation('relu')(dense1)
+        # if self.use_dropout:
+        #     dense1 = Dropout(self.dropout_param)(dense1)
+
+
+        # Affine-Relu-[Dropout] Layer
+        dense2 = Dense(1024,
+                       W_regularizer=l2(self.reg_factor),
+                       init=self.init)(conv_features)
+        if self.use_batchnorm:
+            dense2 = BatchNormalization(mode=1)(dense2)
+        dense2 = Activation('relu')(dense2)
+        if self.use_dropout:
+            dense2 = Dropout(self.dropout_param)(dense2)
+
+        digit1_pred = Dense(10, activation='softmax', name='digit1')(dense2)
+        digit2_pred = Dense(10, activation='softmax', name='digit2')(dense2)
+        digit3_pred = Dense(10, activation='softmax', name='digit3')(dense2)
+        digit4_pred = Dense(10, activation='softmax', name='digit4')(dense2)
+        digit5_pred = Dense(10, activation='softmax', name='digit5')(dense2)
+        length_pred = Dense(7, activation='softmax', name='length')(dense2)
+
+        self.model = Model(input=input_image, output=[length_pred, digit1_pred,
+                                                      digit2_pred, digit3_pred,
+                                                      digit4_pred, digit5_pred])
+
+        if verbose == 1:
+            self.model.summary()
 
 class DigitConvNet(object):
     """ Custom Architecture based on VGGNet """
