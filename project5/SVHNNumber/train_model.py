@@ -14,7 +14,8 @@ from SVHNNumber.models.cnn import (
     DigitConvNet,
     VGGNetMod_1,
     VGGNetMod_2,
-    VGGNetMod_3
+    VGGNetMod_3,
+    GoogleSVHNNetMod
     )
 
 # Load SVHNDigit data
@@ -63,10 +64,11 @@ model_train_params = {'loss': 'categorical_crossentropy',
 
 
 input_dim = (3, 64, 64)
-cnn = VGGNetMod_3(model_define_params, input_dim)
+#cnn = VGGNetMod_3(model_define_params, input_dim)
 #cnn = CNN_B(model_define_params, input_dim)
 #cnn = LeNet5Mod(model_define_params, input_dim)
 # cnn = DigitConvNet(model_define_params, input_dim)
+cnn = GoogleSVHNNetMod(model_define_params, input_dim)
 cnn.define(verbose=1)
 history = train_model_from_images(cnn, model_train_params, model_define_params,
                                   train_data_dir, train_metadata_file,
